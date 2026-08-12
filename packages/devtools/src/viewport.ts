@@ -1,4 +1,14 @@
-import type { Annotation, Transform } from "@scenecheck/core";
+import {
+  applyAnnotationDocument,
+  createAnnotationDocument,
+  parseAnnotationDocument,
+  parseAnnotationDocumentJson,
+  serializeAnnotationDocument,
+  type Annotation,
+  type AnnotationDocument,
+  type AnnotationDocumentMergeMode,
+  type Transform,
+} from "@scenecheck/core";
 import {
   isThreeSceneCheckInternal,
   readThreeSceneAnnotations,
@@ -84,6 +94,40 @@ export class ThreeViewportInteraction {
 
   setOnChange(callback: (() => void) | undefined): void {
     this.onChange = callback;
+  }
+
+  exportAnnotationDocument(): AnnotationDocument {
+    this.assertAlive();
+    return createAnnotationDocument(
+      readThreeSceneAnnotations(this.controller.scene) ?? [],
+    );
+  }
+
+  exportAnnotationJson(pretty = true): string {
+    return serializeAnnotationDocument(
+      this.exportAnnotationDocument().annotations,
+      pretty,
+    );
+  }
+
+  importAnnotationDocument(
+    document: AnnotationDocument | unknown,
+    mode: AnnotationDocumentMergeMode = "replace",
+  ): void {
+    this.assertAlive();
+    const parsed = parseAnnotationDocument(document);
+    const next = applyAnnotationDocument(this.controller.ir, parsed, mode);
+    setThreeSceneAnnotations(this.controller.scene, next.annotations ?? []);
+    this.controller.refresh();
+    this.refreshMarkers();
+    this.onChange?.();
+  }
+
+  importAnnotationJson(
+    text: string,
+    mode: AnnotationDocumentMergeMode = "replace",
+  ): void {
+    this.importAnnotationDocument(parseAnnotationDocumentJson(text), mode);
   }
 
   pickClientPoint(clientX: number, clientY: number): ViewportPickResult | undefined {
