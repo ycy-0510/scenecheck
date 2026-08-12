@@ -1,4 +1,5 @@
 import type { Camera, Object3D } from "three";
+import { ThreeColliderOverlay } from "./collider-overlay.js";
 import {
   ThreeDevtoolsController,
   type ThreeDevtoolsControllerOptions,
@@ -12,6 +13,7 @@ import {
   type ThreeViewportInteractionOptions,
 } from "./viewport.js";
 
+export * from "./collider-overlay.js";
 export * from "./controller.js";
 export * from "./panel.js";
 export * from "./viewport.js";
@@ -32,6 +34,7 @@ export interface AttachThreeDevtoolsOptions
 
 export interface AttachedThreeDevtools {
   controller: ThreeDevtoolsController;
+  colliders: ThreeColliderOverlay;
   panel: ThreeDevtoolsPanel;
   viewport?: ThreeViewportInteraction;
   element: HTMLElement;
@@ -51,8 +54,10 @@ export function attachThreeDevtools(
     ...(options.adapter ? { adapter: options.adapter } : {}),
     ...(options.axesSize !== undefined ? { axesSize: options.axesSize } : {}),
   });
+  const colliders = new ThreeColliderOverlay(controller);
 
   if ((options.camera && !options.domElement) || (!options.camera && options.domElement)) {
+    colliders.destroy();
     controller.destroy();
     throw new Error(
       "SceneCheck viewport interaction requires both camera and domElement.",
@@ -67,6 +72,7 @@ export function attachThreeDevtools(
     if (destroyed) return;
     destroyed = true;
     viewport?.destroy();
+    colliders.destroy();
     panel?.destroy();
     controller.destroy();
   }
@@ -83,6 +89,7 @@ export function attachThreeDevtools(
 
   panel = createThreeDevtoolsPanel({
     controller,
+    colliders,
     ...(viewport ? { viewport } : {}),
     ...(options.container ? { container: options.container } : {}),
     ...(options.title ? { title: options.title } : {}),
@@ -92,6 +99,7 @@ export function attachThreeDevtools(
 
   return {
     controller,
+    colliders,
     panel,
     ...(viewport ? { viewport } : {}),
     element: panel.element,
