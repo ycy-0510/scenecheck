@@ -15,10 +15,15 @@ function assertNear(actual, expected, tolerance = epsilon) {
   assert.ok(Math.abs(actual - expected) <= tolerance, `${actual} != ${expected}`);
 }
 
-function assertMatrixNear(actual, expected, tolerance = epsilon) {
-  for (let index = 0; index < 16; index += 1) {
+function assertVectorNear(actual, expected, tolerance = epsilon) {
+  assert.equal(actual.length, expected.length);
+  for (let index = 0; index < actual.length; index += 1) {
     assertNear(actual[index], expected[index], tolerance);
   }
+}
+
+function assertMatrixNear(actual, expected, tolerance = epsilon) {
+  assertVectorNear(actual, expected, tolerance);
 }
 
 test("compose and decompose preserve ordinary TRS", () => {
@@ -32,8 +37,8 @@ test("compose and decompose preserve ordinary TRS", () => {
   assert.equal(result.representableAsTRS, true);
   assert.ok(result.shear <= epsilon);
   assert.ok(result.reconstructionError <= epsilon);
-  assert.deepEqual(result.transform.position, [4, -2, 7]);
-  assert.deepEqual(result.transform.scale, [2, 3, 4]);
+  assertVectorNear(result.transform.position, [4, -2, 7]);
+  assertVectorNear(result.transform.scale, [2, 3, 4]);
   assertMatrixNear(
     composeMat4(
       result.transform.position,
