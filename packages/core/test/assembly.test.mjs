@@ -69,7 +69,8 @@ test("solves one module-root TRS that aligns anchor with socket", () => {
 
   assert.equal(solution.safeToApplyTRS, true);
   assert.equal(solution.acceptedBySocket, true);
-  assert.deepEqual(solution.desiredLocalTransform.position.map(round), [4, 1.4, -3.6]);
+  assert.deepEqual(solution.desiredLocalTransform.position.map(round), [4, 0, -5]);
+  assert.deepEqual(solution.desiredWorldTransform.position.map(round), [4, 0, -5]);
   assert.ok(Math.abs(solution.delta.localAngleDegrees - 90) < 1e-8);
 
   const q = solution.desiredLocalTransform.rotation;
@@ -101,8 +102,8 @@ test("solves module local transform relative to an existing parent", () => {
     socketId: "emergency-right",
   });
 
-  assert.deepEqual(solution.desiredLocalTransform.position.map(round), [-6, 1.4, -3.6]);
-  assert.deepEqual(solution.desiredWorldTransform.position.map(round), [4, 1.4, -3.6]);
+  assert.deepEqual(solution.desiredLocalTransform.position.map(round), [-6, 0, -5]);
+  assert.deepEqual(solution.desiredWorldTransform.position.map(round), [4, 0, -5]);
 });
 
 test("rejects incompatible socket module types", () => {
