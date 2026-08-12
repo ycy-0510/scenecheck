@@ -112,5 +112,6 @@ test("missing annotations and missing attachment nodes fail loudly", () => {
 });
 
 function round(value) {
-  return Math.round(value * 1e9) / 1e9;
+  const rounded = Math.round(value * 1e9) / 1e9;
+  return Object.is(rounded, -0) ? 0 : rounded;
 }
