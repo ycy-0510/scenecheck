@@ -106,5 +106,6 @@ test("missing requested annotation fails clearly", async () => {
 });
 
 function round(value: number): number {
-  return Math.round(value * 1e9) / 1e9;
+  const rounded = Math.round(value * 1e9) / 1e9;
+  return Object.is(rounded, -0) ? 0 : rounded;
 }
