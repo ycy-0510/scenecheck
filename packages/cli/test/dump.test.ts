@@ -58,7 +58,7 @@ test("built CLI emits a compact scene summary", async () => {
   assert.deepEqual(summary.types, { Group: 1, Mesh: 1 });
 });
 
-test("built CLI queries a single node without dumping the scene", async () => {
+test("built CLI queries a compact single node without dumping matrices or metadata", async () => {
   const { stdout } = await execFileAsync(process.execPath, [
     cli,
     "query",
@@ -68,12 +68,38 @@ test("built CLI queries a single node without dumping the scene", async () => {
   ]);
   const result = JSON.parse(stdout) as {
     total: number;
-    nodes: Array<{ id: string; worldTransform: { position: number[] } }>;
+    nodes: Array<{
+      id: string;
+      worldTransform: { position: number[]; matrix?: number[] };
+      metadata?: unknown;
+    }>;
   };
 
   assert.equal(result.total, 1);
   assert.equal(result.nodes[0]?.id, "box");
   assert.deepEqual(result.nodes[0]?.worldTransform.position, [3, 0, 0]);
+  assert.equal(result.nodes[0]?.worldTransform.matrix, undefined);
+  assert.equal(result.nodes[0]?.metadata, undefined);
+});
+
+test("query --full exposes the complete SceneNode when needed", async () => {
+  const { stdout } = await execFileAsync(process.execPath, [
+    cli,
+    "query",
+    fixture,
+    "--id",
+    "box",
+    "--full",
+  ]);
+  const result = JSON.parse(stdout) as {
+    nodes: Array<{
+      worldTransform: { matrix?: number[] };
+      metadata?: Record<string, unknown>;
+    }>;
+  };
+
+  assert.equal(result.nodes[0]?.worldTransform.matrix?.length, 16);
+  assert.equal(typeof result.nodes[0]?.metadata?.["three.uuid"], "string");
 });
 
 test("query refuses an unfiltered full-scene response", async () => {
