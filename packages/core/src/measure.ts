@@ -1,11 +1,13 @@
+import { resolveAnnotation } from "./annotations.js";
 import type { Mat4, Quat, SceneIR, SceneNode, Transform, Vec3 } from "./index.js";
 
-export type SceneReferenceKind = "node" | "anchor" | "socket";
+export type SceneReferenceKind = "node" | "anchor" | "socket" | "annotation";
 
 export interface ParsedSceneReference {
   kind: SceneReferenceKind;
-  nodeId: string;
+  nodeId?: string;
   semanticId?: string;
+  annotationId?: string;
 }
 
 export interface ResolvedSceneReference extends ParsedSceneReference {
@@ -35,6 +37,7 @@ export interface AngleMeasurement {
  * - `node-id` or `node:node-id` for an object origin
  * - `anchor:node-id#anchor-id` for a semantic anchor
  * - `socket:node-id#socket-id` for a semantic socket
+ * - `annotation:annotation-id` for a human-authored point/arrow/pose
  *
  * The final `#` separates semantic IDs, so node IDs may themselves contain `#`.
  */
@@ -45,7 +48,7 @@ export function parseSceneReference(reference: string): ParsedSceneReference {
   if (value.startsWith("node:")) {
     return {
       kind: "node",
-      nodeId: requireNodeId(value.slice("node:".length), reference),
+      nodeId: requireId(value.slice("node:".length), reference, "node"),
     };
   }
 
@@ -57,6 +60,17 @@ export function parseSceneReference(reference: string): ParsedSceneReference {
     return parseSemanticReference("socket", value.slice("socket:".length), reference);
   }
 
+  if (value.startsWith("annotation:")) {
+    return {
+      kind: "annotation",
+      annotationId: requireId(
+        value.slice("annotation:".length),
+        reference,
+        "annotation",
+      ),
+    };
+  }
+
   return { kind: "node", nodeId: value };
 }
 
@@ -65,9 +79,21 @@ export function resolveSceneReference(
   reference: string,
 ): ResolvedSceneReference {
   const parsed = parseSceneReference(reference);
-  const node = scene.nodes[parsed.nodeId];
+
+  if (parsed.kind === "annotation") {
+    const resolved = resolveAnnotation(scene, parsed.annotationId!);
+    return {
+      ...parsed,
+      reference,
+      worldPosition: cloneVec3(resolved.worldTransform.position),
+      worldRotation: normalizeQuat(resolved.worldTransform.rotation),
+    };
+  }
+
+  const nodeId = parsed.nodeId!;
+  const node = scene.nodes[nodeId];
   if (!node) {
-    throw new Error(`SceneCheck node not found: "${parsed.nodeId}".`);
+    throw new Error(`SceneCheck node not found: "${nodeId}".`);
   }
 
   if (parsed.kind === "node") {
@@ -150,9 +176,13 @@ function parseSemanticReference(
   };
 }
 
-function requireNodeId(value: string, original: string): string {
+function requireId(
+  value: string,
+  original: string,
+  kind: "node" | "annotation",
+): string {
   const id = value.trim();
-  if (!id) throw new Error(`Invalid node reference "${original}".`);
+  if (!id) throw new Error(`Invalid ${kind} reference "${original}".`);
   return id;
 }
 
