@@ -91,6 +91,15 @@ export class ThreeDevtoolsController {
     return this.selectedIdValue ? this.objects.get(this.selectedIdValue) : undefined;
   }
 
+  /** Capture current Scene IR without changing inspector selection or UI state. */
+  capture(options: ThreeSceneAdapterOptions = {}): SceneIR {
+    this.assertAlive();
+    return fromThreeScene(this.scene, {
+      ...this.adapterOptions,
+      ...options,
+    });
+  }
+
   refresh(): SceneIR {
     this.assertAlive();
     this.sceneIR = fromThreeScene(this.scene, this.adapterOptions);
