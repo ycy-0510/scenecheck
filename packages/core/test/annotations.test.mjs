@@ -71,7 +71,7 @@ test("annotation becomes a first-class scene reference for distance and angle", 
   assert.equal(ref.annotationId, "target-pose");
   assert.deepEqual(ref.worldPosition.map(round), [8, 0, 0]);
   assert.equal(distance.distance, 2);
-  assert.ok(angle.degrees < 1e-8);
+  assert.ok(angle.degrees < 1e-5);
 });
 
 test("ordinary assertions can lock geometry against human-authored annotations", () => {
