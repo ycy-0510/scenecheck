@@ -7,6 +7,7 @@ import { promisify } from "node:util";
 const execFileAsync = promisify(execFile);
 const cli = fileURLToPath(new URL("../dist/cli.js", import.meta.url));
 const fixture = fileURLToPath(new URL("./fixtures/annotation-scene.ts", import.meta.url));
+const config = fileURLToPath(new URL("./fixtures/annotation.config.ts", import.meta.url));
 
 test("built CLI lists annotations with resolved attached world transforms", async () => {
   const { stdout, stderr } = await execFileAsync(process.execPath, [
@@ -60,6 +61,31 @@ test("measure can use annotation references directly", async () => {
   const result = JSON.parse(stdout) as { distance: number };
 
   assert.equal(result.distance, 2);
+});
+
+test("validate can lock scene geometry against human annotations", async () => {
+  const { stdout, stderr } = await execFileAsync(process.execPath, [
+    cli,
+    "validate",
+    "--config",
+    config,
+    "--json",
+  ]);
+  const result = JSON.parse(stdout) as {
+    ok: boolean;
+    passed: number;
+    failed: number;
+    results: Array<{ id: string; pass: boolean }>;
+  };
+
+  assert.equal(stderr, "");
+  assert.equal(result.ok, true);
+  assert.equal(result.passed, 2);
+  assert.equal(result.failed, 0);
+  assert.deepEqual(result.results.map((item) => [item.id, item.pass]), [
+    ["annotation-offset", true],
+    ["annotation-orientation", true],
+  ]);
 });
 
 test("missing requested annotation fails clearly", async () => {
