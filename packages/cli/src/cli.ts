@@ -13,6 +13,7 @@ import {
 } from "@scenecheck/core";
 import { loadSceneIRFromProvider } from "./dump.js";
 import { runMeasureCommand } from "./measure-command.js";
+import { runSolveCommand } from "./solve-command.js";
 import { runValidateCommand } from "./validate-command.js";
 
 const execFileAsync = promisify(execFile);
@@ -20,7 +21,7 @@ const args = process.argv.slice(2);
 const command = args[0];
 
 function help(): void {
-  console.log(`SceneCheck\n\nUsage:\n  scenecheck init [--force]\n  scenecheck dump [provider] [--output <file>] [--pretty] [--exclude-invisible] [--no-bounds]\n  scenecheck summary [provider] [--pretty] [--exclude-invisible]\n  scenecheck query [provider] (--id <id> | --name <name> | --type <type> | --text <text> | --parent <id>) [--limit <n>] [--full] [--pretty]\n  scenecheck measure distance [provider] --from <reference> --to <reference> [--pretty]\n  scenecheck measure angle [provider] --from <reference> --to <reference> [--pretty]\n  scenecheck validate [provider] [--config <file>] [--json] [--pretty]\n  scenecheck --help\n\nCommands:\n  init      Install the SceneCheck agent skill in the current repository\n  dump      Load a scene provider and emit complete Scene IR as JSON\n  summary   Emit a compact scene summary without returning every node\n  query     Return only scene nodes matching precise filters; compact by default\n  measure   Compute CPU-side distance or angular difference between scene references\n  validate  Run declarative scene assertions and fail with a non-zero exit code\n\nReferences:\n  <node-id>                         Object origin\n  anchor:<node-id>#<anchor-id>      Semantic anchor\n  socket:<node-id>#<socket-id>      Semantic socket\n\nScene providers may export default, createScene, or scene and return either a Three.js Object3D/Scene or Scene IR.\n`);
+  console.log(`SceneCheck\n\nUsage:\n  scenecheck init [--force]\n  scenecheck dump [provider] [--output <file>] [--pretty] [--exclude-invisible] [--no-bounds]\n  scenecheck summary [provider] [--pretty] [--exclude-invisible]\n  scenecheck query [provider] (--id <id> | --name <name> | --type <type> | --text <text> | --parent <id>) [--limit <n>] [--full] [--pretty]\n  scenecheck measure distance [provider] --from <reference> --to <reference> [--pretty]\n  scenecheck measure angle [provider] --from <reference> --to <reference> [--pretty]\n  scenecheck solve attachment [provider] --module <id> --anchor <id> --target <id> --socket <id> [--full] [--pretty]\n  scenecheck validate [provider] [--config <file>] [--json] [--pretty]\n  scenecheck --help\n\nCommands:\n  init      Install the SceneCheck agent skill in the current repository\n  dump      Load a scene provider and emit complete Scene IR as JSON\n  summary   Emit a compact scene summary without returning every node\n  query     Return only scene nodes matching precise filters; compact by default\n  measure   Compute CPU-side distance or angular difference between scene references\n  solve     Compute a module-root attachment transform without mutating the scene\n  validate  Run declarative scene assertions and fail with a non-zero exit code\n\nReferences:\n  <node-id>                         Object origin\n  anchor:<node-id>#<anchor-id>      Semantic anchor\n  socket:<node-id>#<socket-id>      Semantic socket\n\nScene providers may export default, createScene, or scene and return either a Three.js Object3D/Scene or Scene IR.\n`);
 }
 
 async function findProjectRoot(): Promise<string> {
@@ -329,6 +330,8 @@ async function main(): Promise<void> {
       await query();
     } else if (command === "measure") {
       await runMeasureCommand(args.slice(1));
+    } else if (command === "solve") {
+      await runSolveCommand(args.slice(1));
     } else if (command === "validate") {
       await runValidateCommand(args.slice(1));
     } else if (command === undefined || command === "--help" || command === "-h") {
