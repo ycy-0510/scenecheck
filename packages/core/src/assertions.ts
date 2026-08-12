@@ -1,3 +1,4 @@
+import { measureAabbRelation } from "./aabb.js";
 import { measureAngle, measureDistance } from "./measure.js";
 import type { SceneIR } from "./index.js";
 
@@ -23,14 +24,39 @@ export interface AngleAssertion {
   toleranceDegrees?: number;
 }
 
-export type SceneAssertion = DistanceAssertion | AngleAssertion;
+export interface AabbClearanceAssertion {
+  id: string;
+  type: "aabb-clearance";
+  from: string;
+  to: string;
+  min?: number;
+  max?: number;
+  target?: number;
+  tolerance?: number;
+}
+
+export interface AabbIntersectionAssertion {
+  id: string;
+  type: "aabb-intersection";
+  a: string;
+  b: string;
+  expected: boolean;
+  /** When true, touching is not considered an intersection; positive extent on all axes is required. */
+  strict?: boolean;
+}
+
+export type SceneAssertion =
+  | DistanceAssertion
+  | AngleAssertion
+  | AabbClearanceAssertion
+  | AabbIntersectionAssertion;
 
 export interface AssertionResult {
   id: string;
   type: SceneAssertion["type"];
   pass: boolean;
-  actual: number;
-  unit: "m" | "deg";
+  actual: number | boolean;
+  unit: "m" | "deg" | "boolean";
   expected: string;
   from: string;
   to: string;
@@ -78,8 +104,8 @@ export function evaluateAssertion(
 
   if (assertion.type === "distance") {
     const measurement = measureDistance(scene, assertion.from, assertion.to);
-    const expected = describeDistanceExpectation(assertion);
-    const pass = distancePasses(measurement.distance, assertion);
+    const expected = describeNumericExpectation(assertion, "m");
+    const pass = numericRangePasses(measurement.distance, assertion);
     return {
       id: assertion.id,
       type: assertion.type,
@@ -93,34 +119,83 @@ export function evaluateAssertion(
     };
   }
 
-  const measurement = measureAngle(scene, assertion.from, assertion.to);
-  const expected = describeAngleExpectation(assertion);
-  const pass = anglePasses(measurement.degrees, assertion);
+  if (assertion.type === "angle") {
+    const measurement = measureAngle(scene, assertion.from, assertion.to);
+    const expected = describeAngleExpectation(assertion);
+    const pass = anglePasses(measurement.degrees, assertion);
+    return {
+      id: assertion.id,
+      type: assertion.type,
+      pass,
+      actual: measurement.degrees,
+      unit: "deg",
+      expected,
+      from: assertion.from,
+      to: assertion.to,
+      message: `${assertion.id}: angle ${formatNumber(measurement.degrees)}° ${pass ? "passes" : "fails"} ${expected}`,
+    };
+  }
+
+  if (assertion.type === "aabb-clearance") {
+    const measurement = measureAabbRelation(scene, assertion.from, assertion.to);
+    const expected = describeNumericExpectation(assertion, "m");
+    const pass = numericRangePasses(measurement.clearance, assertion);
+    return {
+      id: assertion.id,
+      type: assertion.type,
+      pass,
+      actual: measurement.clearance,
+      unit: "m",
+      expected,
+      from: assertion.from,
+      to: assertion.to,
+      message: `${assertion.id}: AABB clearance ${formatNumber(measurement.clearance)} m ${pass ? "passes" : "fails"} ${expected}`,
+    };
+  }
+
+  const measurement = measureAabbRelation(scene, assertion.a, assertion.b);
+  const actual = assertion.strict ? measurement.strictlyOverlaps : measurement.intersects;
+  const relation = assertion.strict ? "strict AABB overlap" : "closed AABB intersection";
+  const expected = `${relation} must be ${assertion.expected}`;
+  const pass = actual === assertion.expected;
   return {
     id: assertion.id,
     type: assertion.type,
     pass,
-    actual: measurement.degrees,
-    unit: "deg",
+    actual,
+    unit: "boolean",
     expected,
-    from: assertion.from,
-    to: assertion.to,
-    message: `${assertion.id}: angle ${formatNumber(measurement.degrees)}° ${pass ? "passes" : "fails"} ${expected}`,
+    from: assertion.a,
+    to: assertion.b,
+    message: `${assertion.id}: ${relation} is ${actual}; ${pass ? "passes" : "fails"} expected ${assertion.expected}`,
   };
 }
 
 function validateAssertionDefinition(assertion: SceneAssertion): void {
   if (!assertion.id.trim()) throw new Error("SceneCheck assertion id cannot be empty.");
-  if (!assertion.from.trim() || !assertion.to.trim()) {
-    throw new Error(`Assertion "${assertion.id}" requires non-empty from/to references.`);
-  }
 
   if (assertion.type === "distance") {
-    validateDistanceAssertion(assertion);
+    requireFromTo(assertion);
+    validateNumericAssertion(assertion, "Distance");
     return;
   }
   if (assertion.type === "angle") {
+    requireFromTo(assertion);
     validateAngleAssertion(assertion);
+    return;
+  }
+  if (assertion.type === "aabb-clearance") {
+    requireFromTo(assertion);
+    validateNumericAssertion(assertion, "AABB clearance");
+    return;
+  }
+  if (assertion.type === "aabb-intersection") {
+    if (!assertion.a.trim() || !assertion.b.trim()) {
+      throw new Error(`Assertion "${assertion.id}" requires non-empty a/b node IDs.`);
+    }
+    if (typeof assertion.expected !== "boolean") {
+      throw new Error(`AABB intersection assertion "${assertion.id}" expected must be boolean.`);
+    }
     return;
   }
 
@@ -128,19 +203,28 @@ function validateAssertionDefinition(assertion: SceneAssertion): void {
   throw new Error(`Unsupported SceneCheck assertion type: ${String(neverAssertion)}`);
 }
 
-function validateDistanceAssertion(assertion: DistanceAssertion): void {
+function requireFromTo(assertion: { id: string; from: string; to: string }): void {
+  if (!assertion.from.trim() || !assertion.to.trim()) {
+    throw new Error(`Assertion "${assertion.id}" requires non-empty from/to references.`);
+  }
+}
+
+function validateNumericAssertion(
+  assertion: DistanceAssertion | AabbClearanceAssertion,
+  label: string,
+): void {
   const hasRange = assertion.min !== undefined || assertion.max !== undefined;
   const hasTarget = assertion.target !== undefined;
   if (!hasRange && !hasTarget) {
     throw new Error(
-      `Distance assertion "${assertion.id}" requires min, max, or target+tolerance.`,
+      `${label} assertion "${assertion.id}" requires min, max, or target+tolerance.`,
     );
   }
   if (assertion.target !== undefined && assertion.tolerance === undefined) {
-    throw new Error(`Distance assertion "${assertion.id}" target requires tolerance.`);
+    throw new Error(`${label} assertion "${assertion.id}" target requires tolerance.`);
   }
   if (assertion.tolerance !== undefined && assertion.target === undefined) {
-    throw new Error(`Distance assertion "${assertion.id}" tolerance requires target.`);
+    throw new Error(`${label} assertion "${assertion.id}" tolerance requires target.`);
   }
   validateNonNegative(assertion.min, "min", assertion.id);
   validateNonNegative(assertion.max, "max", assertion.id);
@@ -151,7 +235,7 @@ function validateDistanceAssertion(assertion: DistanceAssertion): void {
     assertion.max !== undefined &&
     assertion.min > assertion.max
   ) {
-    throw new Error(`Distance assertion "${assertion.id}" min cannot exceed max.`);
+    throw new Error(`${label} assertion "${assertion.id}" min cannot exceed max.`);
   }
 }
 
@@ -182,7 +266,10 @@ function validateAngleAssertion(assertion: AngleAssertion): void {
   }
 }
 
-function distancePasses(actual: number, assertion: DistanceAssertion): boolean {
+function numericRangePasses(
+  actual: number,
+  assertion: DistanceAssertion | AabbClearanceAssertion,
+): boolean {
   if (assertion.min !== undefined && actual < assertion.min) return false;
   if (assertion.max !== undefined && actual > assertion.max) return false;
   if (
@@ -208,12 +295,17 @@ function anglePasses(actual: number, assertion: AngleAssertion): boolean {
   return true;
 }
 
-function describeDistanceExpectation(assertion: DistanceAssertion): string {
+function describeNumericExpectation(
+  assertion: DistanceAssertion | AabbClearanceAssertion,
+  unit: "m",
+): string {
   const parts: string[] = [];
-  if (assertion.min !== undefined) parts.push(`>= ${formatNumber(assertion.min)} m`);
-  if (assertion.max !== undefined) parts.push(`<= ${formatNumber(assertion.max)} m`);
+  if (assertion.min !== undefined) parts.push(`>= ${formatNumber(assertion.min)} ${unit}`);
+  if (assertion.max !== undefined) parts.push(`<= ${formatNumber(assertion.max)} ${unit}`);
   if (assertion.target !== undefined && assertion.tolerance !== undefined) {
-    parts.push(`within ${formatNumber(assertion.tolerance)} m of ${formatNumber(assertion.target)} m`);
+    parts.push(
+      `within ${formatNumber(assertion.tolerance)} ${unit} of ${formatNumber(assertion.target)} ${unit}`,
+    );
   }
   return parts.join(" and ");
 }
@@ -260,5 +352,7 @@ function validateAngle(
 }
 
 function formatNumber(value: number): string {
-  return Number.isInteger(value) ? String(value) : value.toFixed(6).replace(/0+$/, "").replace(/\.$/, "");
+  return Number.isInteger(value)
+    ? String(value)
+    : value.toFixed(6).replace(/0+$/, "").replace(/\.$/, "");
 }
