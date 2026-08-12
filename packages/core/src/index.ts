@@ -201,3 +201,5 @@ function normalizeLimit(limit: number | undefined): number {
 
 export * from "./measure.js";
 export * from "./assertions.js";
+export * from "./matrix.js";
+export * from "./assembly.js";
