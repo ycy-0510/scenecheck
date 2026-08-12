@@ -204,3 +204,4 @@ export * from "./assertions.js";
 export * from "./matrix.js";
 export * from "./assembly.js";
 export * from "./aabb.js";
+export * from "./annotations.js";
