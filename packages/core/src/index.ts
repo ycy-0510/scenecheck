@@ -1,10 +1,30 @@
 export type Vec3 = readonly [number, number, number];
 export type Quat = readonly [number, number, number, number];
+export type Mat4 = readonly [
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+];
 
 export interface Transform {
   position: Vec3;
   rotation: Quat;
   scale: Vec3;
+  /** Exact column-major transform matrix when the source adapter provides one. */
+  matrix?: Mat4;
 }
 
 export interface Bounds {
@@ -38,6 +58,7 @@ export interface SceneNode {
   children: readonly string[];
   localTransform: Transform;
   worldTransform: Transform;
+  /** World-axis-aligned bounds for this node and captured descendants. */
   bounds?: Bounds;
   metadata?: Readonly<Record<string, unknown>>;
   semantics?: SceneSemantics;
