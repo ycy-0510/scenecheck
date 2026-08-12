@@ -26,6 +26,17 @@ export interface ThreeDevtoolsState {
   isolatedId?: string;
   showBounds: boolean;
   showAxes: boolean;
+  ghost: boolean;
+  wireframe: boolean;
+}
+
+interface MaterialObject extends Object3D {
+  material: Material | Material[];
+}
+
+interface MaterialOverrideRecord {
+  original: Material | Material[];
+  override: Material | Material[];
 }
 
 /** Runtime-only inspector state. It never rewrites application source or child transforms. */
@@ -39,12 +50,15 @@ export class ThreeDevtoolsController {
   private objects = new Map<string, Object3D>();
   private visibilityOriginals = new Map<Object3D, boolean>();
   private isolationSnapshot: Map<Object3D, boolean> | undefined;
+  private materialOverrides = new Map<MaterialObject, MaterialOverrideRecord>();
   private boundsHelper: Box3Helper | undefined;
   private axesHelper: AxesHelper | undefined;
   private selectedIdValue: string | undefined;
   private isolatedIdValue: string | undefined;
   private showBoundsValue = false;
   private showAxesValue = false;
+  private ghostValue = false;
+  private wireframeValue = false;
   private destroyed = false;
 
   constructor(options: ThreeDevtoolsControllerOptions) {
@@ -68,6 +82,8 @@ export class ThreeDevtoolsController {
       ...(this.isolatedIdValue ? { isolatedId: this.isolatedIdValue } : {}),
       showBounds: this.showBoundsValue,
       showAxes: this.showAxesValue,
+      ghost: this.ghostValue,
+      wireframe: this.wireframeValue,
     };
   }
 
@@ -107,13 +123,12 @@ export class ThreeDevtoolsController {
 
     if (this.selectedIdValue && !this.sceneIR.nodes[this.selectedIdValue]) {
       this.selectedIdValue = undefined;
-      this.clearVisualHelpers();
     }
     if (this.isolatedIdValue && !this.sceneIR.nodes[this.isolatedIdValue]) {
       this.clearIsolation();
     }
 
-    this.refreshVisualHelpers();
+    this.refreshVisualState();
     return this.sceneIR;
   }
 
@@ -123,7 +138,7 @@ export class ThreeDevtoolsController {
       throw new Error(`SceneCheck DevTools node not found: "${id}".`);
     }
     this.selectedIdValue = id;
-    this.refreshVisualHelpers();
+    this.refreshVisualState();
     return id ? this.sceneIR.nodes[id] : undefined;
   }
 
@@ -195,6 +210,18 @@ export class ThreeDevtoolsController {
     this.refreshVisualHelpers();
   }
 
+  setGhost(enabled: boolean): void {
+    this.assertAlive();
+    this.ghostValue = enabled;
+    this.refreshMaterialOverrides();
+  }
+
+  setWireframe(enabled: boolean): void {
+    this.assertAlive();
+    this.wireframeValue = enabled;
+    this.refreshMaterialOverrides();
+  }
+
   destroy(): void {
     if (this.destroyed) return;
 
@@ -203,6 +230,7 @@ export class ThreeDevtoolsController {
       object.visible = visible;
     }
     this.visibilityOriginals.clear();
+    this.restoreMaterialOverrides();
     this.clearVisualHelpers();
     this.helperRoot.removeFromParent();
     this.destroyed = true;
@@ -250,6 +278,41 @@ export class ThreeDevtoolsController {
     if (!this.visibilityOriginals.has(object)) {
       this.visibilityOriginals.set(object, object.visible);
     }
+  }
+
+  private refreshVisualState(): void {
+    this.refreshVisualHelpers();
+    this.refreshMaterialOverrides();
+  }
+
+  private refreshMaterialOverrides(): void {
+    this.restoreMaterialOverrides();
+    const selected = this.selectedObject;
+    if (!selected || (!this.ghostValue && !this.wireframeValue)) return;
+
+    selected.traverse((object) => {
+      if (isThreeSceneCheckInternal(object) || !isMaterialObject(object)) return;
+
+      const original = object.material;
+      const override = Array.isArray(original)
+        ? original.map((material) =>
+            cloneOverlayMaterial(material, this.ghostValue, this.wireframeValue),
+          )
+        : cloneOverlayMaterial(original, this.ghostValue, this.wireframeValue);
+      object.material = override;
+      this.materialOverrides.set(object, { original, override });
+    });
+  }
+
+  private restoreMaterialOverrides(): void {
+    for (const [object, record] of this.materialOverrides) {
+      // If the app replaced the material while SceneCheck was active, preserve the app's new value.
+      if (object.material === record.override) {
+        object.material = record.original;
+      }
+      disposeMaterial(record.override);
+    }
+    this.materialOverrides.clear();
   }
 
   private refreshVisualHelpers(): void {
@@ -307,6 +370,32 @@ export class ThreeDevtoolsController {
   private assertAlive(): void {
     if (this.destroyed) throw new Error("SceneCheck DevTools controller has been destroyed.");
   }
+}
+
+function isMaterialObject(object: Object3D): object is MaterialObject {
+  const candidate = object as Object3D & { material?: unknown };
+  return (
+    candidate.material instanceof Object &&
+    (Array.isArray(candidate.material) || "clone" in candidate.material)
+  );
+}
+
+function cloneOverlayMaterial(
+  original: Material,
+  ghost: boolean,
+  wireframe: boolean,
+): Material {
+  const clone = original.clone();
+  if (ghost) {
+    clone.transparent = true;
+    clone.opacity = Math.min(clone.opacity, 0.2);
+    clone.depthWrite = false;
+  }
+  if (wireframe && "wireframe" in clone) {
+    (clone as Material & { wireframe: boolean }).wireframe = true;
+  }
+  clone.needsUpdate = true;
+  return clone;
 }
 
 function disposeMaterial(material: Material | Material[]): void {
