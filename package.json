@@ -6,6 +6,7 @@
     "build": "pnpm -r build",
     "pretypecheck": "pnpm --filter @scenecheck/core build",
     "typecheck": "pnpm -r typecheck",
+    "test": "pnpm build && pnpm --filter @scenecheck/three test",
     "clean": "pnpm -r clean"
   },
   "devDependencies": {
