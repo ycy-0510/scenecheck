@@ -8,6 +8,7 @@ import { promisify } from "node:util";
 import {
   queryScene,
   summarizeScene,
+  type SceneNode,
   type SceneQuery,
 } from "@scenecheck/core";
 import { loadSceneIRFromProvider } from "./dump.js";
@@ -17,7 +18,7 @@ const args = process.argv.slice(2);
 const command = args[0];
 
 function help(): void {
-  console.log(`SceneCheck\n\nUsage:\n  scenecheck init [--force]\n  scenecheck dump [provider] [--output <file>] [--pretty] [--exclude-invisible] [--no-bounds]\n  scenecheck summary [provider] [--pretty] [--exclude-invisible]\n  scenecheck query [provider] (--id <id> | --name <name> | --type <type> | --text <text> | --parent <id>) [--limit <n>] [--pretty]\n  scenecheck --help\n\nCommands:\n  init      Install the SceneCheck agent skill in the current repository\n  dump      Load a scene provider and emit complete Scene IR as JSON\n  summary   Emit a compact scene summary without returning every node\n  query     Return only scene nodes matching precise filters\n\nScene providers may export default, createScene, or scene and return either a Three.js Object3D/Scene or Scene IR.\n`);
+  console.log(`SceneCheck\n\nUsage:\n  scenecheck init [--force]\n  scenecheck dump [provider] [--output <file>] [--pretty] [--exclude-invisible] [--no-bounds]\n  scenecheck summary [provider] [--pretty] [--exclude-invisible]\n  scenecheck query [provider] (--id <id> | --name <name> | --type <type> | --text <text> | --parent <id>) [--limit <n>] [--full] [--pretty]\n  scenecheck --help\n\nCommands:\n  init      Install the SceneCheck agent skill in the current repository\n  dump      Load a scene provider and emit complete Scene IR as JSON\n  summary   Emit a compact scene summary without returning every node\n  query     Return only scene nodes matching precise filters; compact by default\n\nScene providers may export default, createScene, or scene and return either a Three.js Object3D/Scene or Scene IR.\n`);
 }
 
 async function findProjectRoot(): Promise<string> {
@@ -135,12 +136,14 @@ async function summary(): Promise<void> {
 
 interface QueryCliOptions extends SceneLoadCliOptions {
   query: SceneQuery;
+  full: boolean;
 }
 
 function parseQueryArgs(commandArgs: readonly string[]): QueryCliOptions {
   const parsed: QueryCliOptions = {
     ...defaultSceneLoadOptions(),
     query: {},
+    full: false,
   };
 
   for (let index = 0; index < commandArgs.length; index += 1) {
@@ -151,6 +154,10 @@ function parseQueryArgs(commandArgs: readonly string[]): QueryCliOptions {
 
     if (arg === "--case-sensitive") {
       parsed.query.caseSensitive = true;
+      continue;
+    }
+    if (arg === "--full") {
+      parsed.full = true;
       continue;
     }
 
@@ -191,7 +198,39 @@ async function query(): Promise<void> {
     includeInvisible: options.includeInvisible,
     includeBounds: options.includeBounds,
   });
-  writeJson(queryScene(scene, options.query), options.pretty);
+  const result = queryScene(scene, options.query);
+
+  writeJson(
+    options.full
+      ? result
+      : {
+          ...result,
+          nodes: result.nodes.map(compactNode),
+        },
+    options.pretty,
+  );
+}
+
+function compactNode(node: SceneNode): unknown {
+  return {
+    id: node.id,
+    ...(node.name ? { name: node.name } : {}),
+    type: node.type,
+    ...(node.parentId ? { parentId: node.parentId } : {}),
+    children: node.children,
+    localTransform: compactTransform(node.localTransform),
+    worldTransform: compactTransform(node.worldTransform),
+    ...(node.bounds ? { bounds: node.bounds } : {}),
+    ...(node.semantics ? { semantics: node.semantics } : {}),
+  };
+}
+
+function compactTransform(transform: SceneNode["worldTransform"]): unknown {
+  return {
+    position: transform.position,
+    rotation: transform.rotation,
+    scale: transform.scale,
+  };
 }
 
 function defaultSceneLoadOptions(): SceneLoadCliOptions {
