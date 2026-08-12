@@ -30,6 +30,10 @@ function sceneWith(aBounds, bBounds) {
   };
 }
 
+function assertNear(actual, expected, tolerance = 1e-12) {
+  assert.ok(Math.abs(actual - expected) <= tolerance, `${actual} != ${expected}`);
+}
+
 test("measures Euclidean clearance between separated AABBs", () => {
   const scene = sceneWith(
     [[0, 0, 0], [1, 1, 1]],
@@ -86,7 +90,7 @@ test("measures AABB size center and diagonal", () => {
 
   assert.deepEqual(result.size, [4, 4, 12]);
   assert.deepEqual(result.center, [1, 4, 9]);
-  assert.equal(result.diagonal, 4 * Math.sqrt(11));
+  assertNear(result.diagonal, 4 * Math.sqrt(11));
 });
 
 test("requires captured bounds instead of silently inventing geometry", () => {
