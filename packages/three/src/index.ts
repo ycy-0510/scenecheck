@@ -1,14 +1,20 @@
-import type {
-  Bounds,
-  Mat4,
-  SceneIR,
-  SceneNode,
-  Transform,
+import {
+  validateAnnotations,
+  type Bounds,
+  type Mat4,
+  type SceneIR,
+  type SceneNode,
+  type Transform,
 } from "@scenecheck/core";
 import { Box3, Matrix4, Quaternion, Vector3 } from "three";
 import type { BufferGeometry, Object3D } from "three";
+import { readThreeSceneAnnotations } from "./annotations.js";
 import { readThreeSceneCheckMetadata } from "./semantics.js";
 
+export {
+  readThreeSceneAnnotations,
+  setThreeSceneAnnotations,
+} from "./annotations.js";
 export {
   describeThreeObject,
   readThreeSceneCheckMetadata,
@@ -71,12 +77,15 @@ export function fromThreeScene(
   const parentVisible = ancestorsAreVisible(root.parent);
 
   const rootId = visit(root, undefined, makePathSegment(root, 0, [root]), parentVisible);
-
-  return {
+  const annotations = readThreeSceneAnnotations(root);
+  const scene: SceneIR = {
     version: 1,
     roots: rootId ? [rootId] : [],
     nodes,
+    ...(annotations?.length ? { annotations } : {}),
   };
+  validateAnnotations(scene);
+  return scene;
 
   function visit(
     object: Object3D,
