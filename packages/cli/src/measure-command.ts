@@ -1,39 +1,60 @@
-import { measureAngle, measureDistance } from "@scenecheck/core";
+import {
+  measureAabbRelation,
+  measureAabbSize,
+  measureAngle,
+  measureDistance,
+} from "@scenecheck/core";
 import { loadSceneIRFromProvider } from "./dump.js";
 
+type MeasureOperation = "distance" | "angle" | "aabb" | "bounds";
+
 interface MeasureCliOptions {
-  operation: "distance" | "angle";
+  operation: MeasureOperation;
   provider?: string;
-  from: string;
-  to: string;
+  from?: string;
+  to?: string;
+  node?: string;
   pretty: boolean;
   includeInvisible: boolean;
 }
 
 export async function runMeasureCommand(commandArgs: readonly string[]): Promise<void> {
   const options = parseMeasureArgs(commandArgs);
+  const needsBounds = options.operation === "aabb" || options.operation === "bounds";
   const scene = await loadSceneIRFromProvider(options.provider, {
     includeInvisible: options.includeInvisible,
-    includeBounds: false,
+    includeBounds: needsBounds,
   });
 
-  const result =
-    options.operation === "distance"
-      ? measureDistance(scene, options.from, options.to)
-      : measureAngle(scene, options.from, options.to);
+  let result: unknown;
+  if (options.operation === "distance") {
+    result = measureDistance(scene, options.from!, options.to!);
+  } else if (options.operation === "angle") {
+    result = measureAngle(scene, options.from!, options.to!);
+  } else if (options.operation === "aabb") {
+    result = measureAabbRelation(scene, options.from!, options.to!);
+  } else {
+    result = measureAabbSize(scene, options.node!);
+  }
 
   process.stdout.write(`${JSON.stringify(result, null, options.pretty ? 2 : undefined)}\n`);
 }
 
 function parseMeasureArgs(commandArgs: readonly string[]): MeasureCliOptions {
   const operation = commandArgs[0];
-  if (operation !== "distance" && operation !== "angle") {
-    throw new Error("measure requires an operation: distance or angle.");
+  if (
+    operation !== "distance" &&
+    operation !== "angle" &&
+    operation !== "aabb" &&
+    operation !== "bounds"
+  ) {
+    throw new Error("measure requires an operation: distance, angle, aabb, or bounds.");
   }
 
   let provider: string | undefined;
   let from: string | undefined;
   let to: string | undefined;
+  let node: string | undefined;
   let pretty = false;
   let includeInvisible = true;
 
@@ -49,10 +70,11 @@ function parseMeasureArgs(commandArgs: readonly string[]): MeasureCliOptions {
       includeInvisible = false;
       continue;
     }
-    if (arg === "--from" || arg === "--to") {
+    if (arg === "--from" || arg === "--to" || arg === "--node") {
       const value = requireFlagValue(commandArgs, index, arg);
       if (arg === "--from") from = value;
-      else to = value;
+      else if (arg === "--to") to = value;
+      else node = value;
       index += 1;
       continue;
     }
@@ -63,8 +85,20 @@ function parseMeasureArgs(commandArgs: readonly string[]): MeasureCliOptions {
     provider = arg;
   }
 
+  if (operation === "bounds") {
+    if (!node) throw new Error("measure bounds requires --node <node-id>.");
+    return {
+      operation,
+      ...(provider ? { provider } : {}),
+      node,
+      pretty,
+      includeInvisible,
+    };
+  }
+
   if (!from || !to) {
-    throw new Error("measure requires both --from <reference> and --to <reference>.");
+    const kind = operation === "aabb" ? "node IDs" : "references";
+    throw new Error(`measure ${operation} requires both --from and --to ${kind}.`);
   }
 
   return {
@@ -84,7 +118,7 @@ function requireFlagValue(
 ): string {
   const value = commandArgs[index + 1];
   if (!value || value.startsWith("-")) {
-    throw new Error(`${flag} requires a reference.`);
+    throw new Error(`${flag} requires a value.`);
   }
   return value;
 }
