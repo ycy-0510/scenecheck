@@ -1,0 +1,12 @@
+{
+  "provider": "./basic-scene.ts",
+  "assertions": [
+    {
+      "id": "edge-too-far",
+      "type": "distance",
+      "from": "socket:Root#origin",
+      "to": "anchor:box#edge",
+      "max": 3
+    }
+  ]
+}
