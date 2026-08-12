@@ -16,6 +16,8 @@ export interface BrowserFrameCadence {
 
 export interface RendererPerformanceCounters {
   adapter: "three-webglrenderer";
+  /** Whether Three.js automatically resets render counters around each render. */
+  infoAutoReset: boolean;
   /** Three.js renderer.info.render.frame at snapshot time. */
   frame: number;
   calls: number;
@@ -103,8 +105,12 @@ export function parseRuntimePerformanceSnapshot(
     throw new Error("SceneCheck frameCadence.samples must be at least 1.");
   }
 
+  if (typeof value.renderer.infoAutoReset !== "boolean") {
+    throw new Error("SceneCheck renderer.infoAutoReset must be a boolean.");
+  }
   const renderer: RendererPerformanceCounters = {
     adapter: "three-webglrenderer",
+    infoAutoReset: value.renderer.infoAutoReset,
     frame: requireNonNegativeInteger(value.renderer.frame, "renderer.frame"),
     calls: requireNonNegativeInteger(value.renderer.calls, "renderer.calls"),
     triangles: requireNonNegativeInteger(value.renderer.triangles, "renderer.triangles"),
