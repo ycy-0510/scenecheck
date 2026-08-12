@@ -36,6 +36,7 @@ const devtools = attachThreeDevtools({
 
 const live = attachThreeLiveBridge({
   controller: devtools.controller,
+  renderer, // optional; required only for live performance sampling
 });
 ```
 
@@ -88,21 +89,61 @@ scenecheck live query --id bridge-02 --bounds
 scenecheck live dump --bounds
 ```
 
+## Performance snapshot
+
+When the live bridge is given a Three.js `renderer`, SceneCheck can collect a bounded performance sample on demand:
+
+```bash
+scenecheck live performance
+scenecheck live performance --frames 120 --pretty
+```
+
+The default window is 60 `requestAnimationFrame` intervals and the maximum is 600. No performance sampler runs while no request is active.
+
+The result deliberately separates browser cadence from renderer counters:
+
+```json
+{
+  "kind": "runtime-performance",
+  "frameCadence": {
+    "source": "requestAnimationFrame",
+    "samples": 60,
+    "averageMs": 16.7,
+    "p95Ms": 18.2,
+    "maxMs": 31.4,
+    "rafFps": 59.9
+  },
+  "renderer": {
+    "adapter": "three-webglrenderer",
+    "infoAutoReset": true,
+    "calls": 87,
+    "triangles": 180240,
+    "geometries": 52,
+    "textures": 21
+  },
+  "gpuTimeMeasured": false
+}
+```
+
+`requestAnimationFrame` cadence measures browser/main-thread scheduling cadence. It is **not GPU execution time** and `rafFps` is not a guarantee that the Three.js renderer itself produced that many complete frames. `renderer.info` counters are a snapshot at the end of the sample; when `infoAutoReset` is true they should not be interpreted as a 60-frame aggregate or average.
+
+Hidden tabs are rejected because browsers throttle `requestAnimationFrame`, which would make the result misleading. GPU timer queries are intentionally outside this first performance layer.
+
 ## Runtime cost
 
-The browser keeps an idle Server-Sent Events connection to the local bridge. SceneCheck does not traverse the scene on a timer. A fresh Scene IR snapshot is generated only when a CLI command requests one.
+The browser keeps an idle Server-Sent Events connection to the local bridge. SceneCheck does not traverse the scene or sample frame cadence on a timer. A fresh Scene IR snapshot or performance sample is generated only when a CLI command requests one.
 
 This makes live inspection suitable for development without turning the debugger into a continuous frame-time cost.
 
 ## Security boundary
 
-The first live protocol intentionally exposes only scene capture:
+The live protocol exposes read-only scene capture and bounded performance sampling:
 
 - server binds to IPv4 loopback only;
 - browser runtime connections use an Origin allowlist;
-- browser-originated `/capture` requests are rejected;
+- browser-originated agent request endpoints are rejected;
 - request and response bodies are size-limited;
-- captures time out instead of remaining pending indefinitely;
+- captures and performance samples time out instead of remaining pending indefinitely;
 - no arbitrary JavaScript evaluation;
 - no create/delete/move/material mutation endpoints.
 
