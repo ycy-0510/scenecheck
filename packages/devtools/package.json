@@ -15,5 +15,8 @@
     "@scenecheck/core": "workspace:*",
     "@scenecheck/three": "workspace:*",
     "three": "^0.185.1"
+  },
+  "devDependencies": {
+    "@types/three": "^0.185.1"
   }
 }
