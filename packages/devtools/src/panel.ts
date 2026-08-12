@@ -1,11 +1,17 @@
-import type { SceneNode, Transform } from "@scenecheck/core";
+import type { Transform } from "@scenecheck/core";
 import type { Object3D } from "three";
 import { ThreeDevtoolsController } from "./controller.js";
+import type {
+  ThreeViewportInteraction,
+  ThreeViewportMode,
+} from "./viewport.js";
 
 export interface ThreeDevtoolsPanelOptions {
   controller: ThreeDevtoolsController;
+  viewport?: ThreeViewportInteraction;
   container?: HTMLElement;
   title?: string;
+  onClose?: () => void;
 }
 
 export interface ThreeDevtoolsPanel {
@@ -18,6 +24,7 @@ export function createThreeDevtoolsPanel(
   options: ThreeDevtoolsPanelOptions,
 ): ThreeDevtoolsPanel {
   const controller = options.controller;
+  const viewport = options.viewport;
   const container = options.container ?? document.body;
   const root = document.createElement("aside");
   root.dataset.scenecheckDevtools = "true";
@@ -38,6 +45,7 @@ export function createThreeDevtoolsPanel(
     header.append(
       button("Refresh", () => {
         controller.refresh();
+        viewport?.refreshMarkers();
         render();
       }),
     );
@@ -45,13 +53,19 @@ export function createThreeDevtoolsPanel(
       button(
         "×",
         () => {
-          controller.destroy();
-          api.destroy();
+          if (options.onClose) options.onClose();
+          else {
+            viewport?.destroy();
+            controller.destroy();
+            api.destroy();
+          }
         },
         "Close SceneCheck DevTools",
       ),
     );
     root.append(header);
+
+    if (viewport) root.append(renderViewportToolbar(viewport));
 
     const body = el("div", {
       display: "grid",
@@ -62,8 +76,7 @@ export function createThreeDevtoolsPanel(
     });
 
     const tree = el("div", panelSectionStyle());
-    const treeTitle = sectionTitle("Scene");
-    tree.append(treeTitle);
+    tree.append(sectionTitle("Scene"));
     const treeBody = el("div", { maxHeight: "460px", overflow: "auto" });
     for (const rootId of controller.ir.roots) {
       treeBody.append(renderTreeNode(rootId, 0));
@@ -76,6 +89,42 @@ export function createThreeDevtoolsPanel(
 
     body.append(tree, inspector);
     root.append(body);
+  }
+
+  function renderViewportToolbar(interaction: ThreeViewportInteraction): HTMLElement {
+    const toolbar = el("div", {
+      display: "flex",
+      flexWrap: "wrap",
+      alignItems: "center",
+      gap: "6px",
+      marginTop: "8px",
+      paddingTop: "8px",
+      borderTop: "1px solid rgba(255,255,255,0.1)",
+    });
+    const label = el("span", { opacity: "0.65", fontSize: "11px", marginRight: "2px" });
+    label.textContent = "Viewport";
+    toolbar.append(label);
+
+    const modes: ReadonlyArray<readonly [string, ThreeViewportMode]> = [
+      ["Off", "idle"],
+      ["Pick", "select"],
+      ["Point", "point"],
+      ["Pose", "pose"],
+    ];
+    for (const [name, mode] of modes) {
+      toolbar.append(
+        toggleButton(name, interaction.mode === mode, () => {
+          interaction.setMode(mode);
+          render();
+        }),
+      );
+    }
+
+    const count = controller.ir.annotations?.length ?? 0;
+    const status = el("span", { opacity: "0.58", fontSize: "11px", marginLeft: "4px" });
+    status.textContent = `${count} annotation${count === 1 ? "" : "s"}`;
+    toolbar.append(status);
+    return toolbar;
   }
 
   function renderTreeNode(id: string, depth: number): HTMLElement {
@@ -114,7 +163,7 @@ export function createThreeDevtoolsPanel(
     const object = controller.selectedObject;
     if (!node || !object) {
       const empty = el("p", { opacity: "0.7", margin: "8px 0" });
-      empty.textContent = "Select an object from the scene tree.";
+      empty.textContent = "Select an object from the scene tree or use Viewport → Pick.";
       inspector.append(empty);
       return;
     }
