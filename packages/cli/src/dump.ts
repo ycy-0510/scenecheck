@@ -3,7 +3,6 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { SceneIR } from "@scenecheck/core";
 import { fromThreeScene, type ThreeSceneAdapterOptions } from "@scenecheck/three";
-import { tsImport } from "tsx/esm/api";
 
 const DEFAULT_PROVIDER_FILES = [
   "scenecheck.scene.ts",
@@ -50,7 +49,7 @@ export async function loadSceneIRFromProvider(
   const cwd = options.cwd ?? process.cwd();
   const providerPath = await resolveProviderPath(providerInput, cwd);
   const moduleUrl = pathToFileURL(providerPath).href;
-  const loaded = (await tsImport(moduleUrl, import.meta.url)) as Record<string, unknown>;
+  const loaded = (await import(moduleUrl)) as Record<string, unknown>;
   const provider = loaded.default ?? loaded.createScene ?? loaded.scene;
 
   if (provider === undefined) {
@@ -77,11 +76,7 @@ export async function loadSceneIRFromProvider(
 
 function isSceneIR(value: unknown): value is SceneIR {
   if (!isRecord(value)) return false;
-  return (
-    value.version === 1 &&
-    Array.isArray(value.roots) &&
-    isRecord(value.nodes)
-  );
+  return value.version === 1 && Array.isArray(value.roots) && isRecord(value.nodes);
 }
 
 function isThreeObject3D(value: unknown): boolean {
