@@ -48,6 +48,8 @@ export interface SceneSemantics {
   module?: string;
   anchors?: readonly Anchor[];
   sockets?: readonly Socket[];
+  /** Explicit application/physics collision shapes, not visual bounds. */
+  colliders?: readonly import("./collision.js").CollisionShape[];
 }
 
 export interface SceneNode {
@@ -209,3 +211,4 @@ export * from "./annotation-document.js";
 export * from "./live-protocol.js";
 export * from "./performance.js";
 export * from "./live-performance.js";
+export * from "./collision.js";
