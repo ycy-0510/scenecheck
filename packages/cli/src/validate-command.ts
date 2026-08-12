@@ -1,5 +1,10 @@
-import { validateScene } from "@scenecheck/core";
-import { loadSceneCheckConfig, resolveValidationProvider } from "./config.js";
+import { applyAnnotationDocument, validateScene } from "@scenecheck/core";
+import {
+  loadAnnotationDocumentFile,
+  loadSceneCheckConfig,
+  resolveValidationAnnotations,
+  resolveValidationProvider,
+} from "./config.js";
 import { loadSceneIRFromProvider } from "./dump.js";
 
 interface ValidateCliOptions {
@@ -18,11 +23,20 @@ export async function runValidateCommand(commandArgs: readonly string[]): Promis
     (assertion) =>
       assertion.type === "aabb-clearance" || assertion.type === "aabb-intersection",
   );
-  const scene = await loadSceneIRFromProvider(provider.provider, {
+  let scene = await loadSceneIRFromProvider(provider.provider, {
     cwd: provider.cwd,
     includeInvisible: options.includeInvisible,
     includeBounds: needsBounds,
   });
+
+  const annotationPath = resolveValidationAnnotations(loadedConfig);
+  if (annotationPath) {
+    scene = applyAnnotationDocument(
+      scene,
+      await loadAnnotationDocumentFile(annotationPath),
+    );
+  }
+
   const result = validateScene(scene, loadedConfig.config.assertions);
 
   if (options.json) {
