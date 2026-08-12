@@ -206,3 +206,4 @@ export * from "./assembly.js";
 export * from "./aabb.js";
 export * from "./annotations.js";
 export * from "./annotation-document.js";
+export * from "./live-protocol.js";
