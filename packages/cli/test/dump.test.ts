@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { loadSceneIRFromProvider, resolveProviderPath } from "../src/dump.js";
+import { loadSceneIRFromProvider, resolveProviderPath } from "../src/dump.ts";
 
 const fixture = fileURLToPath(new URL("./fixtures/basic-scene.ts", import.meta.url));
 
