@@ -1,5 +1,11 @@
 {
   "name": "scenecheck-example-basic-three",
   "version": "0.0.0",
-  "private": true
+  "private": true,
+  "scripts": {
+    "dump": "node ../../packages/cli/dist/cli.js dump scenecheck.scene.ts --pretty"
+  },
+  "dependencies": {
+    "three": "^0.185.1"
+  }
 }
