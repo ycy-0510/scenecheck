@@ -203,3 +203,4 @@ export * from "./measure.js";
 export * from "./assertions.js";
 export * from "./matrix.js";
 export * from "./assembly.js";
+export * from "./aabb.js";
