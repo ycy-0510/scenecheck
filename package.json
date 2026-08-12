@@ -6,7 +6,7 @@
     "build": "pnpm -r build",
     "pretypecheck": "pnpm --filter @scenecheck/core build && pnpm --filter @scenecheck/three build",
     "typecheck": "pnpm -r typecheck",
-    "test": "pnpm build && pnpm --filter @scenecheck/core test && pnpm --filter @scenecheck/three test && pnpm --filter @scenecheck/cli test && pnpm --filter scenecheck-example-semantic-assembly validate",
+    "test": "pnpm build && pnpm --filter @scenecheck/core test && pnpm --filter @scenecheck/three test && pnpm --filter @scenecheck/devtools test && pnpm --filter @scenecheck/cli test && pnpm --filter scenecheck-example-semantic-assembly validate",
     "clean": "pnpm -r clean"
   },
   "devDependencies": {
