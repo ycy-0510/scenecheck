@@ -4,6 +4,7 @@
   "packageManager": "pnpm@11.15.1",
   "scripts": {
     "build": "pnpm -r build",
+    "pretypecheck": "pnpm --filter @scenecheck/core build",
     "typecheck": "pnpm -r typecheck",
     "clean": "pnpm -r clean"
   },
