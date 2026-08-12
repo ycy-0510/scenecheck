@@ -46,3 +46,42 @@ test("built CLI emits parseable compact Scene IR JSON", async () => {
   assert.deepEqual(scene.roots, ["Root"]);
   assert.deepEqual(scene.nodes.box?.worldTransform.position, [3, 0, 0]);
 });
+
+test("built CLI emits a compact scene summary", async () => {
+  const { stdout } = await execFileAsync(process.execPath, [cli, "summary", fixture]);
+  const summary = JSON.parse(stdout) as {
+    nodeCount: number;
+    types: Record<string, number>;
+  };
+
+  assert.equal(summary.nodeCount, 2);
+  assert.deepEqual(summary.types, { Group: 1, Mesh: 1 });
+});
+
+test("built CLI queries a single node without dumping the scene", async () => {
+  const { stdout } = await execFileAsync(process.execPath, [
+    cli,
+    "query",
+    fixture,
+    "--id",
+    "box",
+  ]);
+  const result = JSON.parse(stdout) as {
+    total: number;
+    nodes: Array<{ id: string; worldTransform: { position: number[] } }>;
+  };
+
+  assert.equal(result.total, 1);
+  assert.equal(result.nodes[0]?.id, "box");
+  assert.deepEqual(result.nodes[0]?.worldTransform.position, [3, 0, 0]);
+});
+
+test("query refuses an unfiltered full-scene response", async () => {
+  await assert.rejects(
+    () => execFileAsync(process.execPath, [cli, "query", fixture]),
+    (error: unknown) => {
+      const stderr = (error as { stderr?: string }).stderr ?? "";
+      return stderr.includes("query requires at least one filter");
+    },
+  );
+});
