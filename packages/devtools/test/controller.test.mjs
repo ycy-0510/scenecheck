@@ -122,20 +122,70 @@ test("bounds and axes helpers can be toggled without becoming inspectable nodes"
   controller.destroy();
 });
 
-test("destroy removes helpers and restores visibility after active isolation", () => {
-  const { scene, tunnel, road } = makeScene();
+test("ghost and wireframe clone materials without mutating shared application materials", () => {
+  const { scene, wall, road } = makeScene();
+  const original = wall.material;
+  const sharedPeer = new Mesh(new BoxGeometry(1, 1, 1), original);
+  road.add(sharedPeer);
+
+  const controller = new ThreeDevtoolsController({ scene });
+  controller.select("wall");
+  controller.setGhost(true);
+
+  assert.notEqual(wall.material, original);
+  assert.equal(sharedPeer.material, original);
+  assert.equal(wall.material.transparent, true);
+  assert.equal(wall.material.opacity, 0.2);
+  assert.equal(wall.material.depthWrite, false);
+  assert.equal(controller.state.ghost, true);
+
+  controller.setWireframe(true);
+  assert.equal(wall.material.wireframe, true);
+  assert.equal(controller.state.wireframe, true);
+  assert.equal(sharedPeer.material.wireframe, false);
+
+  controller.select("road");
+  assert.equal(wall.material, original);
+
+  controller.destroy();
+  assert.equal(wall.material, original);
+});
+
+test("material teardown does not overwrite an application material replacement", () => {
+  const { scene, wall } = makeScene();
+  const original = wall.material;
+  const controller = new ThreeDevtoolsController({ scene });
+  controller.select("wall");
+  controller.setGhost(true);
+  assert.notEqual(wall.material, original);
+
+  const applicationReplacement = new MeshBasicMaterial();
+  wall.material = applicationReplacement;
+  controller.destroy();
+
+  assert.equal(wall.material, applicationReplacement);
+  original.dispose();
+  applicationReplacement.dispose();
+});
+
+test("destroy removes helpers and restores visibility and material overlays", () => {
+  const { scene, tunnel, wall, road } = makeScene();
+  const originalMaterial = wall.material;
   const controller = new ThreeDevtoolsController({ scene });
   const helperRoot = controller.helperRoot;
   controller.select("tunnel");
   controller.isolateSelected();
   controller.setShowAxes(true);
+  controller.setGhost(true);
 
   assert.equal(road.visible, false);
+  assert.notEqual(wall.material, originalMaterial);
   assert.equal(helperRoot.parent, scene);
 
   controller.destroy();
   assert.equal(road.visible, true);
   assert.equal(tunnel.visible, true);
+  assert.equal(wall.material, originalMaterial);
   assert.equal(helperRoot.parent, null);
   assert.equal(helperRoot.children.length, 0);
 });
