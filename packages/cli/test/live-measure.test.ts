@@ -78,7 +78,8 @@ test("live AABB measurement requests bounds only when required", async () => {
     ]);
     const result = JSON.parse(stdout);
     assert.equal(result.intersects, false);
-    assert.equal(result.distance, 1);
+    assert.equal(result.clearance, Math.sqrt(5));
+    assert.deepEqual(result.axisGap, [1, 2, 0]);
     assert.deepEqual(captureBodies, [
       { includeInvisible: true, includeBounds: true },
     ]);
