@@ -1,8 +1,8 @@
 import type { SceneIR } from "./index.js";
 
 export const LIVE_PROTOCOL_VERSION = 1 as const;
-export const DEFAULT_LIVE_PORT = 37431 as const;
-export const DEFAULT_LIVE_URL = `http://127.0.0.1:${DEFAULT_LIVE_PORT}` as const;
+export const DEFAULT_LIVE_PORT: number = 37431;
+export const DEFAULT_LIVE_URL: string = `http://127.0.0.1:${DEFAULT_LIVE_PORT}`;
 
 export interface LiveCaptureOptions {
   includeInvisible?: boolean;
