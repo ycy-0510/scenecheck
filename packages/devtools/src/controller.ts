@@ -11,6 +11,7 @@ import {
   Box3Helper,
   Group,
   Matrix4,
+  type Material,
   type Object3D,
 } from "three";
 
@@ -283,20 +284,26 @@ export class ThreeDevtoolsController {
     if (this.boundsHelper) {
       this.boundsHelper.removeFromParent();
       this.boundsHelper.geometry.dispose();
-      this.boundsHelper.material.dispose();
+      disposeMaterial(this.boundsHelper.material);
       this.boundsHelper = undefined;
     }
     if (this.axesHelper) {
       this.axesHelper.removeFromParent();
       this.axesHelper.geometry.dispose();
-      const material = this.axesHelper.material;
-      if (Array.isArray(material)) material.forEach((item) => item.dispose());
-      else material.dispose();
+      disposeMaterial(this.axesHelper.material);
       this.axesHelper = undefined;
     }
   }
 
   private assertAlive(): void {
     if (this.destroyed) throw new Error("SceneCheck DevTools controller has been destroyed.");
+  }
+}
+
+function disposeMaterial(material: Material | Material[]): void {
+  if (Array.isArray(material)) {
+    for (const item of material) item.dispose();
+  } else {
+    material.dispose();
   }
 }
