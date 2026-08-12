@@ -42,9 +42,14 @@ export function createThreeDevtoolsPanel(
       }),
     );
     header.append(
-      button("×", () => {
-        api.destroy();
-      }, "Close SceneCheck DevTools"),
+      button(
+        "×",
+        () => {
+          controller.destroy();
+          api.destroy();
+        },
+        "Close SceneCheck DevTools",
+      ),
     );
     root.append(header);
 
@@ -83,7 +88,8 @@ export function createThreeDevtoolsPanel(
     row.style.display = "block";
     row.style.width = "100%";
     row.style.border = "0";
-    row.style.background = controller.selectedId === id ? "rgba(255,255,255,0.14)" : "transparent";
+    row.style.background =
+      controller.selectedId === id ? "rgba(255,255,255,0.14)" : "transparent";
     row.style.color = "inherit";
     row.style.textAlign = "left";
     row.style.padding = `4px 6px 4px ${6 + depth * 12}px`;
@@ -132,10 +138,14 @@ export function createThreeDevtoolsPanel(
     }
 
     if (node.semantics?.anchors?.length) {
-      inspector.append(kv("Anchors", node.semantics.anchors.map((item) => item.id).join(", ")));
+      inspector.append(
+        kv("Anchors", node.semantics.anchors.map((item) => item.id).join(", ")),
+      );
     }
     if (node.semantics?.sockets?.length) {
-      inspector.append(kv("Sockets", node.semantics.sockets.map((item) => item.id).join(", ")));
+      inspector.append(
+        kv("Sockets", node.semantics.sockets.map((item) => item.id).join(", ")),
+      );
     }
 
     const actions = el("div", {
@@ -326,7 +336,9 @@ function formatQuat(value: readonly number[]): string {
 
 function formatNumber(value: number): string {
   if (Object.is(value, -0)) return "0";
-  return Number.isInteger(value) ? String(value) : value.toFixed(4).replace(/0+$/, "").replace(/\.$/, "");
+  return Number.isInteger(value)
+    ? String(value)
+    : value.toFixed(4).replace(/0+$/, "").replace(/\.$/, "");
 }
 
 export function selectedThreeObject(
