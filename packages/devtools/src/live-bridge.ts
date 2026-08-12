@@ -2,16 +2,24 @@ import {
   DEFAULT_LIVE_URL,
   LIVE_PROTOCOL_VERSION,
   parseLiveCaptureRequest,
+  parseLivePerformanceRequest,
   type LiveCaptureFailure,
   type LiveCaptureRequest,
   type LiveCaptureSuccess,
+  type LivePerformanceFailure,
+  type LivePerformanceRequest,
+  type LivePerformanceSuccess,
 } from "@scenecheck/core";
+import type { WebGLRenderer } from "three";
 import { ThreeDevtoolsController } from "./controller.js";
+import { sampleThreePerformance } from "./performance.js";
 
 export type ThreeLiveBridgeStatus = "connecting" | "connected" | "disconnected" | "error";
 
 export interface ThreeLiveBridgeOptions {
   controller: ThreeDevtoolsController;
+  /** Optional. Required only for `scenecheck live performance`. */
+  renderer?: WebGLRenderer;
   url?: string;
   onStatusChange?: (status: ThreeLiveBridgeStatus) => void;
 }
@@ -24,7 +32,7 @@ export interface AttachedThreeLiveBridge {
 
 /**
  * Connect a running browser scene to a loopback SceneCheck live server.
- * The scene is only traversed when a capture event arrives.
+ * Scene and performance work only happens when a corresponding live request arrives.
  */
 export function attachThreeLiveBridge(
   options: ThreeLiveBridgeOptions,
@@ -50,6 +58,9 @@ export function attachThreeLiveBridge(
   });
   source.addEventListener("capture", (event) => {
     void handleCaptureEvent(event, options.controller, baseUrl);
+  });
+  source.addEventListener("performance", (event) => {
+    void handlePerformanceEvent(event, options.renderer, baseUrl);
   });
 
   return {
@@ -97,22 +108,69 @@ async function handleCaptureEvent(
       scene,
     };
   } catch (error) {
+    response = failure(request.requestId, error);
+  }
+
+  await postRuntimeResponse(`${baseUrl}/runtime/respond`, response);
+}
+
+async function handlePerformanceEvent(
+  event: Event,
+  renderer: WebGLRenderer | undefined,
+  baseUrl: string,
+): Promise<void> {
+  if (!(event instanceof MessageEvent)) return;
+
+  let request: LivePerformanceRequest;
+  try {
+    request = parseLivePerformanceRequest(JSON.parse(String(event.data)));
+  } catch {
+    return;
+  }
+
+  let response: LivePerformanceSuccess | LivePerformanceFailure;
+  try {
+    if (!renderer) {
+      throw new Error(
+        "SceneCheck live performance requires renderer in attachThreeLiveBridge({ renderer }).",
+      );
+    }
     response = {
       protocol: LIVE_PROTOCOL_VERSION,
       requestId: request.requestId,
-      ok: false,
-      error: error instanceof Error ? error.message : String(error),
+      ok: true,
+      performance: await sampleThreePerformance(renderer, {
+        frames: request.options.frames,
+      }),
     };
+  } catch (error) {
+    response = failure(request.requestId, error);
   }
 
+  await postRuntimeResponse(`${baseUrl}/runtime/performance-respond`, response);
+}
+
+function failure(
+  requestId: string,
+  error: unknown,
+): LiveCaptureFailure | LivePerformanceFailure {
+  return {
+    protocol: LIVE_PROTOCOL_VERSION,
+    requestId,
+    ok: false,
+    error: error instanceof Error ? error.message : String(error),
+  };
+}
+
+async function postRuntimeResponse(url: string, response: unknown): Promise<void> {
   try {
-    await fetch(`${baseUrl}/runtime/respond`, {
+    await fetch(url, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(response),
     });
   } catch {
-    // The server may have stopped while capture was running. A later request can retry.
+    // The server may have stopped while work was running. A later request can retry.
   }
 }
 
