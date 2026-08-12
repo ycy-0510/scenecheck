@@ -7,6 +7,7 @@ import { promisify } from "node:util";
 const execFileAsync = promisify(execFile);
 const cli = fileURLToPath(new URL("../dist/cli.js", import.meta.url));
 const fixture = fileURLToPath(new URL("./fixtures/aabb-scene.ts", import.meta.url));
+const config = fileURLToPath(new URL("./fixtures/aabb.config.ts", import.meta.url));
 
 test("built CLI measures AABB clearance and axis gap", async () => {
   const { stdout, stderr } = await execFileAsync(process.execPath, [
@@ -47,4 +48,30 @@ test("built CLI reports bounds size without rendering", async () => {
 
   assert.deepEqual(result.size, [2, 2, 2]);
   assert.deepEqual(result.center, [0, 0, 0]);
+});
+
+test("validate computes AABBs automatically when an assertion requires them", async () => {
+  const { stdout, stderr } = await execFileAsync(process.execPath, [
+    cli,
+    "validate",
+    "--config",
+    config,
+    "--json",
+  ]);
+  const result = JSON.parse(stdout) as {
+    ok: boolean;
+    passed: number;
+    failed: number;
+    results: Array<{ type: string; actual: number | boolean }>;
+  };
+
+  assert.equal(stderr, "");
+  assert.equal(result.ok, true);
+  assert.equal(result.passed, 2);
+  assert.equal(result.failed, 0);
+  assert.deepEqual(result.results.map((item) => item.type), [
+    "aabb-clearance",
+    "aabb-intersection",
+  ]);
+  assert.deepEqual(result.results.map((item) => item.actual), [3, false]);
 });
