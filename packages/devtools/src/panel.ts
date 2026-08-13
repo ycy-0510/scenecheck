@@ -1,5 +1,6 @@
 import type { Transform } from "@scenecheck/core";
 import type { Object3D } from "three";
+import { renderAnnotationManagementPanel } from "./annotation-panel.js";
 import type { ThreeColliderOverlay } from "./collider-overlay.js";
 import { ThreeDevtoolsController } from "./controller.js";
 import type {
@@ -72,6 +73,13 @@ export function createThreeDevtoolsPanel(
     root.append(header);
 
     if (viewport) root.append(renderViewportToolbar(viewport));
+    root.append(
+      renderAnnotationManagementPanel({
+        controller,
+        ...(viewport ? { viewport } : {}),
+        onChange: render,
+      }),
+    );
     if (notice) {
       const status = el("div", {
         marginTop: "6px",
