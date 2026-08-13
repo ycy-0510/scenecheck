@@ -15,6 +15,7 @@ import {
 export * from "./controller.js";
 export * from "./panel.js";
 export * from "./viewport.js";
+export * from "./live-bridge.js";
 
 export interface AttachThreeDevtoolsOptions
   extends Omit<ThreeDevtoolsControllerOptions, "scene"> {
