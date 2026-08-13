@@ -60,6 +60,8 @@ export interface SceneNode {
   children: readonly string[];
   localTransform: Transform;
   worldTransform: Transform;
+  /** Application source location associated with this runtime object when available. */
+  source?: import("./source-location.js").SourceLocation;
   /** World-axis-aligned bounds for this node and captured descendants. */
   bounds?: Bounds;
   metadata?: Readonly<Record<string, unknown>>;
@@ -214,3 +216,4 @@ export * from "./live-performance.js";
 export * from "./collision.js";
 export * from "./collider-relations.js";
 export * from "./pose-assertion.js";
+export * from "./source-location.js";

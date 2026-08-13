@@ -3,8 +3,13 @@ import type {
   Quat,
   SceneSemantics,
   Socket,
+  SourceLocation,
   Transform,
   Vec3,
+} from "@scenecheck/core";
+import {
+  cloneSourceLocation,
+  normalizeSourceLocation,
 } from "@scenecheck/core";
 import type { Object3D } from "three";
 import {
@@ -34,6 +39,8 @@ export interface ThreeSceneCheckDescriptor {
   id?: string;
   /** Reusable module/prefab identity for this object subtree. */
   module?: string;
+  /** Application source location. Usually injected by @scenecheck/vite. */
+  source?: SourceLocation;
   /** Local-space semantic anchors attached to this object. */
   anchors?: readonly ThreeAnchorInput[];
   /** Local-space semantic sockets exposed by this object. */
@@ -44,6 +51,7 @@ export interface ThreeSceneCheckDescriptor {
 
 export interface StoredThreeSceneCheckMetadata {
   id?: string;
+  source?: SourceLocation;
   semantics?: SceneSemantics;
 }
 
@@ -69,11 +77,15 @@ export function readThreeSceneCheckMetadata(
   if (!isRecord(raw)) return undefined;
 
   const id = typeof raw.id === "string" && raw.id.trim() ? raw.id.trim() : undefined;
+  const source = isSourceLocationLike(raw.source)
+    ? cloneSourceLocation(raw.source)
+    : undefined;
   const semantics = isSceneSemantics(raw.semantics) ? cloneSceneSemantics(raw.semantics) : undefined;
 
-  if (!id && !semantics) return undefined;
+  if (!id && !source && !semantics) return undefined;
   return {
     ...(id ? { id } : {}),
+    ...(source ? { source } : {}),
     ...(semantics ? { semantics } : {}),
   };
 }
@@ -91,6 +103,9 @@ function normalizeDescriptor(
     throw new Error("SceneCheck module name cannot be empty.");
   }
 
+  const source = descriptor.source
+    ? normalizeSourceLocation(descriptor.source)
+    : undefined;
   const anchors = descriptor.anchors?.map(normalizeAnchor);
   const sockets = descriptor.sockets?.map(normalizeSocket);
   const colliders = normalizeThreeColliders(descriptor.colliders);
@@ -109,6 +124,7 @@ function normalizeDescriptor(
 
   return {
     ...(id ? { id } : {}),
+    ...(source ? { source } : {}),
     ...(semantics ? { semantics } : {}),
   };
 }
@@ -189,6 +205,21 @@ function isSceneSemantics(value: unknown): value is SceneSemantics {
   if (value.anchors !== undefined && !Array.isArray(value.anchors)) return false;
   if (value.sockets !== undefined && !Array.isArray(value.sockets)) return false;
   if (value.colliders !== undefined && !Array.isArray(value.colliders)) return false;
+  return true;
+}
+
+function isSourceLocationLike(value: unknown): value is SourceLocation {
+  if (!isRecord(value) || typeof value.file !== "string" || !value.file.trim()) return false;
+  if (value.line !== undefined && (!Number.isInteger(value.line) || Number(value.line) < 1)) {
+    return false;
+  }
+  if (
+    value.column !== undefined &&
+    (!Number.isInteger(value.column) || Number(value.column) < 1)
+  ) {
+    return false;
+  }
+  if (value.symbol !== undefined && typeof value.symbol !== "string") return false;
   return true;
 }
 
