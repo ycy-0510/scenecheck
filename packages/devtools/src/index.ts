@@ -35,7 +35,7 @@ export interface AttachThreeDevtoolsOptions
 
 export interface AttachedThreeDevtools {
   controller: ThreeDevtoolsController;
-  /** Runtime-only registered-collider visualization; enable explicitly when needed. */
+  /** Runtime-only registered-collider visualization shared with the embedded panel. */
   colliders: ThreeColliderOverlay;
   panel: ThreeDevtoolsPanel;
   viewport?: ThreeViewportInteraction;
@@ -91,6 +91,7 @@ export function attachThreeDevtools(
 
   panel = createThreeDevtoolsPanel({
     controller,
+    colliders,
     ...(viewport ? { viewport } : {}),
     ...(options.container ? { container: options.container } : {}),
     ...(options.title ? { title: options.title } : {}),
