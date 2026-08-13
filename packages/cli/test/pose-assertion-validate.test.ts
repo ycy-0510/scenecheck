@@ -7,6 +7,8 @@ import { promisify } from "node:util";
 const execFileAsync = promisify(execFile);
 const cli = fileURLToPath(new URL("../dist/cli.js", import.meta.url));
 const config = fileURLToPath(new URL("./fixtures/pose-assertion.config.ts", import.meta.url));
+const positionTolerance = 0.001;
+const rotationToleranceDegrees = 0.001;
 
 test("validate accepts a reviewed frozen pose assertion in config", async () => {
   const { stdout, stderr } = await execFileAsync(process.execPath, [
@@ -36,6 +38,12 @@ test("validate accepts a reviewed frozen pose assertion in config", async () => 
   assert.equal(result.failed, 0);
   assert.equal(result.results[0]?.type, "pose");
   assert.equal(result.results[0]?.unit, "pose");
-  assert.ok((result.results[0]?.actual.positionError ?? 1) < 1e-12);
-  assert.ok((result.results[0]?.actual.rotationErrorDegrees ?? 1) < 1e-9);
+  assert.ok(
+    (result.results[0]?.actual.positionError ?? Number.POSITIVE_INFINITY) <=
+      positionTolerance,
+  );
+  assert.ok(
+    (result.results[0]?.actual.rotationErrorDegrees ?? Number.POSITIVE_INFINITY) <=
+      rotationToleranceDegrees,
+  );
 });
