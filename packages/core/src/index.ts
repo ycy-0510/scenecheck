@@ -213,3 +213,4 @@ export * from "./performance.js";
 export * from "./live-performance.js";
 export * from "./collision.js";
 export * from "./collider-relations.js";
+export * from "./pose-assertion.js";

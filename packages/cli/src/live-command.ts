@@ -7,6 +7,7 @@ import {
   type SceneNode,
   type SceneQuery,
 } from "@scenecheck/core";
+import { runLiveAssertionCommand } from "./assertion-command.js";
 import { captureLiveScene, getLiveStatus } from "./live-client.js";
 import { runLiveMeasureCommand } from "./live-measure-command.js";
 import { runLivePerformanceCommand } from "./live-performance-command.js";
@@ -47,6 +48,10 @@ export async function runLiveCommand(commandArgs: readonly string[]): Promise<vo
     await annotations(rest);
     return;
   }
+  if (subcommand === "assertion") {
+    await runLiveAssertionCommand(rest);
+    return;
+  }
   if (subcommand === "measure") {
     await runLiveMeasureCommand(rest);
     return;
@@ -57,7 +62,7 @@ export async function runLiveCommand(commandArgs: readonly string[]): Promise<vo
   }
 
   throw new Error(
-    "live requires one of: serve, status, dump, summary, query, annotations, measure, performance.",
+    "live requires one of: serve, status, dump, summary, query, annotations, assertion, measure, performance.",
   );
 }
 

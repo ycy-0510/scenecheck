@@ -28,6 +28,47 @@ scenecheck live annotations --id pose-1
 scenecheck live measure distance --from annotation:pose-1 --to tunnel-exit
 ```
 
+## Freeze reviewed intent into a regression assertion
+
+Annotations are useful while debugging, but a permanent CI rule must not keep following a mutable marker. SceneCheck can freeze the marker's currently resolved world pose into literal expected values:
+
+```bash
+scenecheck live assertion from-annotation \
+  --annotation pose-1 \
+  --target socket:tunnel#exit \
+  --position-tolerance 0.05 \
+  --rotation-tolerance-degrees 2 \
+  --pretty
+```
+
+Provider/offline form:
+
+```bash
+scenecheck assertion from-annotation ./scenecheck.scene.ts \
+  --annotation pose-1 \
+  --target socket:tunnel#exit \
+  --position-tolerance 0.05 \
+  --rotation-tolerance-degrees 2
+```
+
+The command prints a reviewable assertion object and does not modify source/config automatically:
+
+```json
+{
+  "id": "pose-1-frozen-pose",
+  "type": "pose",
+  "target": "socket:tunnel#exit",
+  "position": [12.4, 1.8, -6.2],
+  "positionTolerance": 0.05,
+  "rotation": [0, 0.70710678, 0, 0.70710678],
+  "rotationToleranceDegrees": 2
+}
+```
+
+Add the reviewed object to `scenecheck.config.*`. From then on CI compares the target to those literal world values. The original annotation can move or be deleted and the assertion does not change.
+
+A frozen `pose` assertion accepts only a node, anchor, or socket target; `annotation:<id>` targets are rejected. This prevents a moving annotation from becoming both the expected value and the measured value. Position tolerance is always explicit. Rotation is optional; point annotations cannot be converted into orientation constraints.
+
 ## Update human metadata programmatically
 
 Annotation IDs and spatial transforms are stable machine references. Human-readable `label` and `note` can also be edited through the public API without changing that spatial identity:
@@ -63,9 +104,10 @@ export default {
   provider: "./scenecheck.scene.ts",
   annotations: "./scenecheck.annotations.json",
   assertions: [
-    // references may use annotation:<id>
+    // temporary measurements may reference annotation:<id>;
+    // permanent pose assertions should freeze literal expected values.
   ],
 };
 ```
 
-Annotations are intent, not automatically assertions. If a marker follows the same object being tested, a distance-to-self constraint would be meaningless; choose a stable reference or explicit expected pose when turning human intent into regression protection.
+Annotations are intent, not automatically assertions. Freeze only the spatial intent that should remain invariant; choose the target and tolerances explicitly so the resulting CI rule states what must stay true.

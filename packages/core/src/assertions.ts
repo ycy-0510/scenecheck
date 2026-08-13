@@ -1,6 +1,12 @@
 import { measureAabbRelation } from "./aabb.js";
 import { measureColliderRelation } from "./collider-relations.js";
 import { measureAngle, measureDistance } from "./measure.js";
+import {
+  evaluatePoseAssertion,
+  validatePoseAssertionDefinition,
+  type PoseAssertion,
+  type PoseAssertionActual,
+} from "./pose-assertion.js";
 import type { SceneIR } from "./index.js";
 
 export interface DistanceAssertion {
@@ -61,14 +67,15 @@ export type SceneAssertion =
   | AngleAssertion
   | AabbClearanceAssertion
   | AabbIntersectionAssertion
-  | ColliderIntersectionAssertion;
+  | ColliderIntersectionAssertion
+  | PoseAssertion;
 
 export interface AssertionResult {
   id: string;
   type: SceneAssertion["type"];
   pass: boolean;
-  actual: number | boolean | "unsupported";
-  unit: "m" | "deg" | "boolean" | "status";
+  actual: number | boolean | "unsupported" | PoseAssertionActual;
+  unit: "m" | "deg" | "boolean" | "status" | "pose";
   expected: string;
   from: string;
   to: string;
@@ -165,6 +172,24 @@ export function evaluateAssertion(
     };
   }
 
+  if (assertion.type === "pose") {
+    const evaluation = evaluatePoseAssertion(scene, assertion);
+    const rotation = evaluation.actual.rotationErrorDegrees !== undefined
+      ? `, rotation error ${formatNumber(evaluation.actual.rotationErrorDegrees)}°`
+      : "";
+    return {
+      id: assertion.id,
+      type: assertion.type,
+      pass: evaluation.pass,
+      actual: evaluation.actual,
+      unit: "pose",
+      expected: evaluation.expected,
+      from: assertion.target,
+      to: "frozen-world-pose",
+      message: `${assertion.id}: position error ${formatNumber(evaluation.actual.positionError)} m${rotation}; ${evaluation.pass ? "passes" : "fails"} ${evaluation.expected}`,
+    };
+  }
+
   if (assertion.type === "collider-intersection") {
     const measurement = measureColliderRelation(scene, assertion.a, assertion.b);
     const relation = assertion.strict
@@ -237,6 +262,10 @@ function validateAssertionDefinition(assertion: SceneAssertion): void {
   if (assertion.type === "aabb-clearance") {
     requireFromTo(assertion);
     validateNumericAssertion(assertion, "AABB clearance");
+    return;
+  }
+  if (assertion.type === "pose") {
+    validatePoseAssertionDefinition(assertion);
     return;
   }
   if (assertion.type === "aabb-intersection") {
