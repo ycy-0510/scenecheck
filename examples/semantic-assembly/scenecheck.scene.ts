@@ -22,6 +22,8 @@ export default function createScene(): Scene {
 
   const emergencyExit = new Group();
   emergencyExit.name = "EmergencyExit";
+  emergencyExit.position.set(4, 0, -5);
+  emergencyExit.rotation.y = Math.PI / 2;
   describeThreeObject(emergencyExit, {
     id: "emergency-exit-template",
     module: "EmergencyExit",
