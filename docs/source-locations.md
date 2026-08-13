@@ -19,6 +19,31 @@ A mapped node contains a first-class `source` field in Scene IR:
 
 `line` and `column` are 1-based. File paths are normalized to project-relative forward-slash paths when the Vite integration creates them.
 
+## Inspect source from DevTools
+
+Select a mapped object in the scene tree or with **Viewport → Pick**. The embedded DevTools panel shows a **Source** block above the annotation controls:
+
+```text
+Source
+src/world/tunnel.ts:183:5
+buildTunnel
+```
+
+The file reference and symbol are selectable text. Selection changes use the existing panel render lifecycle, so the source block always follows the currently selected SceneCheck node and disappears when the selected node has no mapped source.
+
+## Inspect source from an agent
+
+Full Scene IR already contains `node.source`. When an agent needs the source for one precise node, prefer a targeted full query rather than dumping the whole scene:
+
+```bash
+scenecheck query ./scenecheck.scene.ts --id tunnel-04 --full
+scenecheck live query --id tunnel-04 --full
+```
+
+Read the returned node's `source.file`, optional `source.line` / `source.column`, and optional `source.symbol`. Compact query output intentionally remains smaller; request `--full` only when the full node metadata, including source mapping, is useful.
+
+Do not infer a source file for a node that has no `source` field.
+
 ## Automatic Vite development mapping
 
 Install the development integration and add it to the Vite config:
