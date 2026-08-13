@@ -47,7 +47,11 @@ const devtools = attachThreeDevtools({
 devtools.colliders.setEnabled(true);
 ```
 
-Helpers are SceneCheck-internal, do not enter Scene IR, and are disposed during DevTools teardown. The built-in panel does not control this overlay yet.
+The built-in Inspector uses the same overlay. When a selected node declares colliders, it lists each collider ID and type and exposes a `Colliders` toggle alongside Ghost, Wireframe, Bounds, and Axes.
+
+The toggle is sticky across selection changes. With it enabled, selecting another node refreshes the helper geometry for that node; selecting a node with no registered colliders shows no collider helpers while keeping the mode enabled.
+
+Helpers are SceneCheck-internal, do not enter Scene IR, and are disposed during DevTools teardown.
 
 ## Measure exact relations
 
