@@ -1,5 +1,6 @@
 import type { Transform } from "@scenecheck/core";
 import type { Object3D } from "three";
+import type { ThreeColliderOverlay } from "./collider-overlay.js";
 import { ThreeDevtoolsController } from "./controller.js";
 import type {
   ThreeViewportInteraction,
@@ -8,6 +9,7 @@ import type {
 
 export interface ThreeDevtoolsPanelOptions {
   controller: ThreeDevtoolsController;
+  colliders?: ThreeColliderOverlay;
   viewport?: ThreeViewportInteraction;
   container?: HTMLElement;
   title?: string;
@@ -24,6 +26,7 @@ export function createThreeDevtoolsPanel(
   options: ThreeDevtoolsPanelOptions,
 ): ThreeDevtoolsPanel {
   const controller = options.controller;
+  const colliders = options.colliders;
   const viewport = options.viewport;
   const container = options.container ?? document.body;
   const root = document.createElement("aside");
@@ -36,6 +39,7 @@ export function createThreeDevtoolsPanel(
 
   function render(): void {
     if (destroyed) return;
+    colliders?.refresh();
     root.replaceChildren();
 
     const header = el("div", { display: "flex", alignItems: "center", gap: "8px" });
@@ -57,6 +61,7 @@ export function createThreeDevtoolsPanel(
           if (options.onClose) options.onClose();
           else {
             viewport?.destroy();
+            colliders?.destroy();
             controller.destroy();
             api.destroy();
           }
@@ -251,6 +256,16 @@ export function createThreeDevtoolsPanel(
         kv("Sockets", node.semantics.sockets.map((item) => item.id).join(", ")),
       );
     }
+    if (node.semantics?.colliders?.length) {
+      inspector.append(
+        kv(
+          "Colliders",
+          node.semantics.colliders
+            .map((item) => `${item.id} · ${item.type}`)
+            .join(", "),
+        ),
+      );
+    }
 
     const actions = el("div", {
       display: "flex",
@@ -306,6 +321,14 @@ export function createThreeDevtoolsPanel(
         render();
       }),
     );
+    if (colliders) {
+      actions.append(
+        toggleButton("Colliders", colliders.enabled, (enabled) => {
+          colliders.setEnabled(enabled);
+          render();
+        }),
+      );
+    }
     inspector.append(actions);
   }
 
