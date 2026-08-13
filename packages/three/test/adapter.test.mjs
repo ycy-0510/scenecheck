@@ -7,7 +7,7 @@ import {
   MeshBasicMaterial,
   Scene,
 } from "three";
-import { fromThreeScene } from "../dist/index.js";
+import { describeThreeObject, fromThreeScene } from "../dist/index.js";
 
 function makeMesh(name = "Mesh") {
   const mesh = new Mesh(new BoxGeometry(2, 4, 6), new MeshBasicMaterial());
@@ -51,6 +51,70 @@ test("uses semantic IDs when userData.scenecheckId is present", () => {
 
   assert.ok(ir.nodes["emergency-exit-a"]);
   assert.deepEqual(ir.nodes.World?.children, ["emergency-exit-a"]);
+});
+
+test("captures module anchors and sockets from describeThreeObject", () => {
+  const scene = new Scene();
+  scene.name = "World";
+
+  const exit = new Group();
+  exit.name = "Exit";
+  describeThreeObject(exit, {
+    id: "emergency-exit",
+    module: "EmergencyExit",
+    anchors: [
+      {
+        id: "mount",
+        type: "wall-mount",
+        position: [0, 1.4, 0],
+        rotation: [0, 1, 0, 0],
+      },
+      { id: "floor", position: [0, 0, 0] },
+    ],
+    sockets: [
+      {
+        id: "sign",
+        position: [0, 2.2, 0.05],
+        accepts: ["ExitSign"],
+      },
+    ],
+  });
+  scene.add(exit);
+
+  const ir = fromThreeScene(scene);
+  const node = ir.nodes["emergency-exit"];
+
+  assert.equal(node?.semantics?.module, "EmergencyExit");
+  assert.deepEqual(node?.semantics?.anchors?.[0], {
+    id: "mount",
+    type: "wall-mount",
+    transform: {
+      position: [0, 1.4, 0],
+      rotation: [0, 1, 0, 0],
+      scale: [1, 1, 1],
+    },
+  });
+  assert.deepEqual(node?.semantics?.sockets?.[0], {
+    id: "sign",
+    transform: {
+      position: [0, 2.2, 0.05],
+      rotation: [0, 0, 0, 1],
+      scale: [1, 1, 1],
+    },
+    accepts: ["ExitSign"],
+  });
+});
+
+test("rejects duplicate anchor ids when defining semantics", () => {
+  const object = new Group();
+
+  assert.throws(
+    () =>
+      describeThreeObject(object, {
+        anchors: [{ id: "mount" }, { id: "mount" }],
+      }),
+    /duplicate scenecheck anchor id/i,
+  );
 });
 
 test("disambiguates duplicate sibling names without using runtime UUIDs", () => {

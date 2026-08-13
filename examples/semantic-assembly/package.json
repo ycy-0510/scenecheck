@@ -1,0 +1,12 @@
+{
+  "name": "scenecheck-example-semantic-assembly",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "dump": "node ../../packages/cli/dist/cli.js dump scenecheck.scene.ts --pretty"
+  },
+  "dependencies": {
+    "@scenecheck/three": "workspace:*",
+    "three": "^0.185.1"
+  }
+}
