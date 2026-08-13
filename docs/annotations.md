@@ -18,6 +18,8 @@ const devtools = attachThreeDevtools({
 
 Use **Point** or **Pose** in the viewport toolbar and click the rendered surface.
 
+The embedded DevTools panel includes an **Annotations** section. Each entry shows the stable `annotation:<id>` reference, annotation type, and attachment. You can edit its label/note or delete it directly. Saving metadata never changes the annotation ID or spatial transform; deleting it also refreshes the viewport marker layer.
+
 Agents can then read the exact marker directly:
 
 ```bash
@@ -26,9 +28,9 @@ scenecheck live annotations --id pose-1
 scenecheck live measure distance --from annotation:pose-1 --to tunnel-exit
 ```
 
-## Update human metadata
+## Update human metadata programmatically
 
-Annotation IDs and spatial transforms are stable machine references. Human-readable `label` and `note` can be edited without changing that spatial identity:
+Annotation IDs and spatial transforms are stable machine references. Human-readable `label` and `note` can also be edited through the public API without changing that spatial identity:
 
 ```ts
 import { updateThreeAnnotation } from "@scenecheck/devtools";
@@ -41,7 +43,7 @@ updateThreeAnnotation(devtools.controller, "pose-1", {
 
 Passing `null` or an empty/whitespace-only string removes the corresponding label or note.
 
-## Delete an annotation
+## Delete an annotation programmatically
 
 ```ts
 import { removeThreeAnnotation } from "@scenecheck/devtools";
@@ -50,7 +52,7 @@ removeThreeAnnotation(devtools.controller, "point-3");
 devtools.viewport?.refreshMarkers();
 ```
 
-Deletion updates the runtime annotation metadata and Scene IR. If the visual viewport marker layer is active, refresh it after a programmatic change.
+Deletion updates the runtime annotation metadata and Scene IR. Programmatic callers refresh the marker layer explicitly when a viewport is active; the built-in panel does this automatically.
 
 ## Persist annotations
 
