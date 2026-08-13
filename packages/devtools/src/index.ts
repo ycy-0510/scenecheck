@@ -89,7 +89,6 @@ export function attachThreeDevtools(
 
   panel = createThreeDevtoolsPanel({
     controller,
-    colliders,
     ...(viewport ? { viewport } : {}),
     ...(options.container ? { container: options.container } : {}),
     ...(options.title ? { title: options.title } : {}),
