@@ -1,7 +1,11 @@
 import { access, readFile } from "node:fs/promises";
 import { dirname, extname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import type { SceneAssertion } from "@scenecheck/core";
+import {
+  parseAnnotationDocumentJson,
+  type AnnotationDocument,
+  type SceneAssertion,
+} from "@scenecheck/core";
 
 const DEFAULT_CONFIG_FILES = [
   "scenecheck.config.ts",
@@ -13,6 +17,8 @@ const DEFAULT_CONFIG_FILES = [
 
 export interface SceneCheckConfig {
   provider?: string;
+  /** Optional persisted annotation document, resolved relative to this config file. */
+  annotations?: string;
   assertions: readonly SceneAssertion[];
 }
 
@@ -83,6 +89,26 @@ export function resolveValidationProvider(
   return { cwd: loaded.directory };
 }
 
+export function resolveValidationAnnotations(
+  loaded: LoadedSceneCheckConfig,
+): string | undefined {
+  return loaded.config.annotations
+    ? resolve(loaded.directory, loaded.config.annotations)
+    : undefined;
+}
+
+export async function loadAnnotationDocumentFile(
+  path: string,
+): Promise<AnnotationDocument> {
+  let text: string;
+  try {
+    text = await readFile(path, "utf8");
+  } catch {
+    throw new Error(`SceneCheck annotation document not found: ${path}`);
+  }
+  return parseAnnotationDocumentJson(text);
+}
+
 async function loadConfigModule(path: string): Promise<unknown> {
   if (extname(path).toLowerCase() === ".json") {
     return JSON.parse(await readFile(path, "utf8"));
@@ -99,12 +125,16 @@ function normalizeConfig(value: unknown, path: string): SceneCheckConfig {
   if (value.provider !== undefined && typeof value.provider !== "string") {
     throw new Error(`SceneCheck config ${path} provider must be a string.`);
   }
+  if (value.annotations !== undefined && typeof value.annotations !== "string") {
+    throw new Error(`SceneCheck config ${path} annotations must be a string.`);
+  }
   if (!Array.isArray(value.assertions)) {
     throw new Error(`SceneCheck config ${path} must contain an assertions array.`);
   }
 
   return {
     ...(typeof value.provider === "string" ? { provider: value.provider } : {}),
+    ...(typeof value.annotations === "string" ? { annotations: value.annotations } : {}),
     assertions: value.assertions as SceneAssertion[],
   };
 }

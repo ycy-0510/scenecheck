@@ -32,6 +32,7 @@ export function createThreeDevtoolsPanel(
   container.append(root);
 
   let destroyed = false;
+  let notice: { text: string; error: boolean } | undefined;
 
   function render(): void {
     if (destroyed) return;
@@ -66,6 +67,19 @@ export function createThreeDevtoolsPanel(
     root.append(header);
 
     if (viewport) root.append(renderViewportToolbar(viewport));
+    if (notice) {
+      const status = el("div", {
+        marginTop: "6px",
+        padding: "5px 7px",
+        borderRadius: "5px",
+        fontSize: "11px",
+        background: notice.error
+          ? "rgba(255,90,90,0.14)"
+          : "rgba(120,220,160,0.12)",
+      });
+      status.textContent = notice.text;
+      root.append(status);
+    }
 
     const body = el("div", {
       display: "grid",
@@ -120,11 +134,52 @@ export function createThreeDevtoolsPanel(
       );
     }
 
+    toolbar.append(
+      button("Export annotations", () => {
+        downloadAnnotationJson(interaction.exportAnnotationJson());
+        notice = { text: "Exported scenecheck.annotations.json", error: false };
+        render();
+      }),
+    );
+    toolbar.append(
+      button("Import annotations", () => {
+        chooseAnnotationFile(interaction);
+      }),
+    );
+
     const count = controller.ir.annotations?.length ?? 0;
     const status = el("span", { opacity: "0.58", fontSize: "11px", marginLeft: "4px" });
     status.textContent = `${count} annotation${count === 1 ? "" : "s"}`;
     toolbar.append(status);
     return toolbar;
+  }
+
+  function chooseAnnotationFile(interaction: ThreeViewportInteraction): void {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "application/json,.json";
+    input.addEventListener(
+      "change",
+      async () => {
+        const file = input.files?.[0];
+        if (!file) return;
+        try {
+          interaction.importAnnotationJson(await file.text(), "replace");
+          notice = {
+            text: `Imported ${controller.ir.annotations?.length ?? 0} annotations from ${file.name}`,
+            error: false,
+          };
+        } catch (error) {
+          notice = {
+            text: error instanceof Error ? error.message : String(error),
+            error: true,
+          };
+        }
+        render();
+      },
+      { once: true },
+    );
+    input.click();
   }
 
   function renderTreeNode(id: string, depth: number): HTMLElement {
@@ -254,6 +309,16 @@ export function createThreeDevtoolsPanel(
 
   render();
   return api;
+}
+
+function downloadAnnotationJson(text: string): void {
+  const blob = new Blob([text], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = "scenecheck.annotations.json";
+  anchor.click();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
 function transformBlock(label: string, transform: Transform): HTMLElement {
