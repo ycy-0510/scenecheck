@@ -3,6 +3,9 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
   "bin": {
     "scenecheck": "./dist/cli.js"
   },
@@ -13,6 +16,14 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test test/dump.test.ts",
     "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@scenecheck/core": "workspace:*",
+    "@scenecheck/three": "workspace:*"
+  },
+  "devDependencies": {
+    "three": "^0.185.1"
   }
 }

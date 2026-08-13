@@ -4,9 +4,9 @@
   "packageManager": "pnpm@11.15.1",
   "scripts": {
     "build": "pnpm -r build",
-    "pretypecheck": "pnpm --filter @scenecheck/core build",
+    "pretypecheck": "pnpm --filter @scenecheck/core build && pnpm --filter @scenecheck/three build",
     "typecheck": "pnpm -r typecheck",
-    "test": "pnpm build && pnpm --filter @scenecheck/three test",
+    "test": "pnpm build && pnpm --filter @scenecheck/three test && pnpm --filter @scenecheck/cli test",
     "clean": "pnpm -r clean"
   },
   "devDependencies": {

@@ -1,0 +1,48 @@
+import assert from "node:assert/strict";
+import { execFile } from "node:child_process";
+import { test } from "node:test";
+import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
+import { loadSceneIRFromProvider, resolveProviderPath } from "../src/dump.ts";
+
+const execFileAsync = promisify(execFile);
+const fixture = fileURLToPath(new URL("./fixtures/basic-scene.ts", import.meta.url));
+const cli = fileURLToPath(new URL("../dist/cli.js", import.meta.url));
+
+test("loads a TypeScript Three.js scene provider into Scene IR", async () => {
+  const scene = await loadSceneIRFromProvider(fixture);
+
+  assert.deepEqual(scene.roots, ["Root"]);
+  assert.equal(scene.nodes.Root?.children[0], "box");
+  assert.deepEqual(scene.nodes.box?.worldTransform.position, [3, 0, 0]);
+  assert.deepEqual(scene.nodes.box?.bounds, {
+    min: [2, -2, -3],
+    max: [4, 2, 3],
+  });
+});
+
+test("can disable bounds for lower-cost dumps", async () => {
+  const scene = await loadSceneIRFromProvider(fixture, { includeBounds: false });
+
+  assert.equal(scene.nodes.Root?.bounds, undefined);
+  assert.equal(scene.nodes.box?.bounds, undefined);
+});
+
+test("reports a missing explicit provider clearly", async () => {
+  await assert.rejects(
+    () => resolveProviderPath("does-not-exist.scene.ts", process.cwd()),
+    /Scene provider not found/,
+  );
+});
+
+test("built CLI emits parseable compact Scene IR JSON", async () => {
+  const { stdout, stderr } = await execFileAsync(process.execPath, [cli, "dump", fixture]);
+  const scene = JSON.parse(stdout) as {
+    roots: string[];
+    nodes: Record<string, { worldTransform: { position: number[] } }>;
+  };
+
+  assert.equal(stderr, "");
+  assert.deepEqual(scene.roots, ["Root"]);
+  assert.deepEqual(scene.nodes.box?.worldTransform.position, [3, 0, 0]);
+});
