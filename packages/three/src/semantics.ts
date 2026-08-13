@@ -7,6 +7,11 @@ import type {
   Vec3,
 } from "@scenecheck/core";
 import type { Object3D } from "three";
+import {
+  cloneCollisionShapes,
+  normalizeThreeColliders,
+  type ThreeColliderInput,
+} from "./colliders.js";
 
 export interface ThreeSemanticTransformInput {
   position?: Vec3;
@@ -33,6 +38,8 @@ export interface ThreeSceneCheckDescriptor {
   anchors?: readonly ThreeAnchorInput[];
   /** Local-space semantic sockets exposed by this object. */
   sockets?: readonly ThreeSocketInput[];
+  /** Explicit local-space application/physics collision shapes. */
+  colliders?: readonly ThreeColliderInput[];
 }
 
 export interface StoredThreeSceneCheckMetadata {
@@ -44,7 +51,7 @@ const USER_DATA_KEY = "scenecheck";
 
 /**
  * Attach stable SceneCheck semantics to a Three.js Object3D without changing its render behavior.
- * Anchor and socket transforms are local to the described object.
+ * Anchor, socket, and collider transforms are local to the described object.
  */
 export function describeThreeObject<T extends Object3D>(
   object: T,
@@ -86,15 +93,17 @@ function normalizeDescriptor(
 
   const anchors = descriptor.anchors?.map(normalizeAnchor);
   const sockets = descriptor.sockets?.map(normalizeSocket);
+  const colliders = normalizeThreeColliders(descriptor.colliders);
   assertUniqueIds(anchors ?? [], "anchor");
   assertUniqueIds(sockets ?? [], "socket");
 
   const semantics: SceneSemantics | undefined =
-    moduleName || anchors?.length || sockets?.length
+    moduleName || anchors?.length || sockets?.length || colliders?.length
       ? {
           ...(moduleName ? { module: moduleName } : {}),
           ...(anchors?.length ? { anchors } : {}),
           ...(sockets?.length ? { sockets } : {}),
+          ...(colliders?.length ? { colliders } : {}),
         }
       : undefined;
 
@@ -141,6 +150,7 @@ function normalizeTransform(input: ThreeSemanticTransformInput): Transform {
 }
 
 function cloneSceneSemantics(semantics: SceneSemantics): SceneSemantics {
+  const colliders = cloneCollisionShapes(semantics.colliders);
   return {
     ...(semantics.module ? { module: semantics.module } : {}),
     ...(semantics.anchors
@@ -160,6 +170,7 @@ function cloneSceneSemantics(semantics: SceneSemantics): SceneSemantics {
           })),
         }
       : {}),
+    ...(colliders ? { colliders } : {}),
   };
 }
 
@@ -177,6 +188,7 @@ function isSceneSemantics(value: unknown): value is SceneSemantics {
   if (value.module !== undefined && typeof value.module !== "string") return false;
   if (value.anchors !== undefined && !Array.isArray(value.anchors)) return false;
   if (value.sockets !== undefined && !Array.isArray(value.sockets)) return false;
+  if (value.colliders !== undefined && !Array.isArray(value.colliders)) return false;
   return true;
 }
 
