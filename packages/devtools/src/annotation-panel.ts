@@ -4,6 +4,7 @@ import {
   updateThreeAnnotation,
 } from "./annotation-management.js";
 import { ThreeDevtoolsController } from "./controller.js";
+import { renderSelectedSourcePanel } from "./source-panel.js";
 import type { ThreeViewportInteraction } from "./viewport.js";
 
 export interface AnnotationManagementPanelOptions {
@@ -13,7 +14,7 @@ export interface AnnotationManagementPanelOptions {
 }
 
 /**
- * Render human-authored annotation metadata controls.
+ * Render human-authored annotation metadata controls and selected source context.
  * Mutations delegate to the same annotation-management API used programmatically.
  */
 export function renderAnnotationManagementPanel(
@@ -26,11 +27,15 @@ export function renderAnnotationManagementPanel(
     borderTop: "1px solid rgba(255,255,255,0.1)",
   });
 
+  const sourcePanel = renderSelectedSourcePanel(options.controller);
+  if (sourcePanel) root.append(sourcePanel);
+
   const header = document.createElement("div");
   Object.assign(header.style, {
     display: "flex",
     alignItems: "baseline",
     gap: "7px",
+    marginTop: sourcePanel ? "8px" : "0",
     marginBottom: "6px",
   });
 
