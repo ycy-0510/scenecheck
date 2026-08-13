@@ -16,6 +16,10 @@ export {
   setThreeSceneAnnotations,
 } from "./annotations.js";
 export {
+  isThreeSceneCheckInternal,
+  markThreeSceneCheckInternal,
+} from "./internal.js";
+export {
   describeThreeObject,
   readThreeSceneCheckMetadata,
 } from "./semantics.js";
@@ -93,6 +97,10 @@ export function fromThreeScene(
     path: string,
     ancestorsVisible: boolean,
   ): string | undefined {
+    if (object.userData.scenecheckInternal === true) {
+      return undefined;
+    }
+
     const effectiveVisible = ancestorsVisible && object.visible;
     if (!config.includeInvisible && !effectiveVisible) {
       return undefined;
