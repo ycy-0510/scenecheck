@@ -20,6 +20,7 @@ export * from "./viewport.js";
 export * from "./live-bridge.js";
 export * from "./performance.js";
 export * from "./annotation-management.js";
+export * from "./source-panel.js";
 
 export interface AttachThreeDevtoolsOptions
   extends Omit<ThreeDevtoolsControllerOptions, "scene"> {
