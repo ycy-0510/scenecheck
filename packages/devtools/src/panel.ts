@@ -283,6 +283,18 @@ export function createThreeDevtoolsPanel(
     }
 
     actions.append(
+      toggleButton("Ghost", controller.state.ghost, (enabled) => {
+        controller.setGhost(enabled);
+        render();
+      }),
+    );
+    actions.append(
+      toggleButton("Wireframe", controller.state.wireframe, (enabled) => {
+        controller.setWireframe(enabled);
+        render();
+      }),
+    );
+    actions.append(
       toggleButton("Bounds", controller.state.showBounds, (enabled) => {
         controller.setShowBounds(enabled);
         render();
