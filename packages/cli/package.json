@@ -1,7 +1,6 @@
 {
   "name": "@scenecheck/cli",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.1.0",
   "type": "module",
   "engines": {
     "node": ">=22.18"
@@ -13,6 +12,9 @@
     "dist",
     "templates"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
