@@ -19,6 +19,7 @@ export * from "./panel.js";
 export * from "./viewport.js";
 export * from "./live-bridge.js";
 export * from "./performance.js";
+export * from "./annotation-management.js";
 
 export interface AttachThreeDevtoolsOptions
   extends Omit<ThreeDevtoolsControllerOptions, "scene"> {
@@ -27,7 +28,7 @@ export interface AttachThreeDevtoolsOptions
   title?: string;
   /** Provide together with domElement to enable viewport picking/annotation modes. */
   camera?: Camera;
-  /** Usually renderer.domElement. Provide together with camera. */
+  /** Usually renderer.domElement. */
   domElement?: HTMLElement;
   markerSize?: number;
 }
@@ -89,7 +90,6 @@ export function attachThreeDevtools(
 
   panel = createThreeDevtoolsPanel({
     controller,
-    colliders,
     ...(viewport ? { viewport } : {}),
     ...(options.container ? { container: options.container } : {}),
     ...(options.title ? { title: options.title } : {}),
