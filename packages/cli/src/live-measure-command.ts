@@ -3,11 +3,12 @@ import {
   measureAabbRelation,
   measureAabbSize,
   measureAngle,
+  measureColliderRelation,
   measureDistance,
 } from "@scenecheck/core";
 import { captureLiveScene } from "./live-client.js";
 
-type MeasureOperation = "distance" | "angle" | "aabb" | "bounds";
+type MeasureOperation = "distance" | "angle" | "aabb" | "bounds" | "collider";
 
 interface LiveMeasureOptions {
   operation: MeasureOperation;
@@ -34,6 +35,8 @@ export async function runLiveMeasureCommand(args: readonly string[]): Promise<vo
     result = measureAngle(scene, options.from!, options.to!);
   } else if (options.operation === "aabb") {
     result = measureAabbRelation(scene, options.from!, options.to!);
+  } else if (options.operation === "collider") {
+    result = measureColliderRelation(scene, options.from!, options.to!);
   } else {
     result = measureAabbSize(scene, options.node!);
   }
@@ -47,10 +50,11 @@ function parseLiveMeasureArgs(args: readonly string[]): LiveMeasureOptions {
     operation !== "distance" &&
     operation !== "angle" &&
     operation !== "aabb" &&
-    operation !== "bounds"
+    operation !== "bounds" &&
+    operation !== "collider"
   ) {
     throw new Error(
-      "live measure requires an operation: distance, angle, aabb, or bounds.",
+      "live measure requires an operation: distance, angle, aabb, bounds, or collider.",
     );
   }
 
@@ -94,7 +98,12 @@ function parseLiveMeasureArgs(args: readonly string[]): LiveMeasureOptions {
   }
 
   if (!from || !to) {
-    const kind = operation === "aabb" ? "node IDs" : "references";
+    const kind =
+      operation === "aabb"
+        ? "node IDs"
+        : operation === "collider"
+          ? "collider references"
+          : "references";
     throw new Error(
       `live measure ${operation} requires both --from and --to ${kind}.`,
     );
