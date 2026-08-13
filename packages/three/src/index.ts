@@ -150,6 +150,7 @@ export function fromThreeScene(
       children: childIds,
       localTransform: matrixToTransform(object.matrix),
       worldTransform: matrixToTransform(object.matrixWorld),
+      ...(sceneCheckMetadata?.source ? { source: sceneCheckMetadata.source } : {}),
       ...(subtreeBounds ? { bounds: boxToBounds(subtreeBounds) } : {}),
       metadata: {
         "three.uuid": object.uuid,
