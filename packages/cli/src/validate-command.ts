@@ -14,10 +14,14 @@ export async function runValidateCommand(commandArgs: readonly string[]): Promis
   const options = parseValidateArgs(commandArgs);
   const loadedConfig = await loadSceneCheckConfig(options.config);
   const provider = resolveValidationProvider(loadedConfig, options.provider);
+  const needsBounds = loadedConfig.config.assertions.some(
+    (assertion) =>
+      assertion.type === "aabb-clearance" || assertion.type === "aabb-intersection",
+  );
   const scene = await loadSceneIRFromProvider(provider.provider, {
     cwd: provider.cwd,
     includeInvisible: options.includeInvisible,
-    includeBounds: false,
+    includeBounds: needsBounds,
   });
   const result = validateScene(scene, loadedConfig.config.assertions);
 
