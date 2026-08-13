@@ -64,6 +64,17 @@ scenecheck live annotations
 scenecheck live annotations --id target-pose
 ```
 
+Measure the current running world directly instead of dumping Scene IR and recomputing values in the agent:
+
+```bash
+scenecheck live measure distance --from road-17 --to annotation:target
+scenecheck live measure angle --from anchor:road-17#end --to socket:tunnel#entrance
+scenecheck live measure aabb --from bridge-02 --to terrain-chunk-12
+scenecheck live measure bounds --node emergency-exit-03
+```
+
+Distance and angle captures skip bounds. AABB and bounds measurements request them because those operations require them.
+
 Request full Scene IR only when necessary:
 
 ```bash
