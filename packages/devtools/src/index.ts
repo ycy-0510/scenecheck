@@ -35,6 +35,7 @@ export interface AttachThreeDevtoolsOptions
 
 export interface AttachedThreeDevtools {
   controller: ThreeDevtoolsController;
+  /** Runtime-only registered-collider visualization; enable explicitly when needed. */
   colliders: ThreeColliderOverlay;
   panel: ThreeDevtoolsPanel;
   viewport?: ThreeViewportInteraction;
