@@ -9,6 +9,7 @@ import {
 } from "@scenecheck/core";
 import { captureLiveScene, getLiveStatus } from "./live-client.js";
 import { runLiveMeasureCommand } from "./live-measure-command.js";
+import { runLivePerformanceCommand } from "./live-performance-command.js";
 import { startSceneCheckLiveServer } from "./live-server.js";
 
 interface CommonLiveOptions {
@@ -50,9 +51,13 @@ export async function runLiveCommand(commandArgs: readonly string[]): Promise<vo
     await runLiveMeasureCommand(rest);
     return;
   }
+  if (subcommand === "performance") {
+    await runLivePerformanceCommand(rest);
+    return;
+  }
 
   throw new Error(
-    "live requires one of: serve, status, dump, summary, query, annotations, measure.",
+    "live requires one of: serve, status, dump, summary, query, annotations, measure, performance.",
   );
 }
 

@@ -6,17 +6,22 @@ import {
   LIVE_PROTOCOL_VERSION,
   parseLiveCaptureOptions,
   parseLiveCaptureResponse,
+  parseLivePerformanceOptions,
+  parseLivePerformanceResponse,
   type LiveCaptureRequest,
+  type LivePerformanceRequest,
 } from "@scenecheck/core";
 
 const MAX_RUNTIME_RESPONSE_BYTES = 64 * 1024 * 1024;
-const MAX_CAPTURE_REQUEST_BYTES = 8 * 1024;
+const MAX_AGENT_REQUEST_BYTES = 8 * 1024;
 const DEFAULT_CAPTURE_TIMEOUT_MS = 15_000;
+const DEFAULT_PERFORMANCE_TIMEOUT_MS = 20_000;
 
 export interface SceneCheckLiveServerOptions {
   port?: number;
   allowedOrigins?: readonly string[];
   captureTimeoutMs?: number;
+  performanceTimeoutMs?: number;
 }
 
 export interface RunningSceneCheckLiveServer {
@@ -27,7 +32,7 @@ export interface RunningSceneCheckLiveServer {
   close(): Promise<void>;
 }
 
-interface PendingCapture {
+interface PendingRequest {
   response: ServerResponse;
   timeout: NodeJS.Timeout;
 }
@@ -41,12 +46,20 @@ export async function startSceneCheckLiveServer(
   const captureTimeoutMs = normalizeTimeout(
     options.captureTimeoutMs ?? DEFAULT_CAPTURE_TIMEOUT_MS,
   );
+  const performanceTimeoutMs = normalizeTimeout(
+    options.performanceTimeoutMs ?? DEFAULT_PERFORMANCE_TIMEOUT_MS,
+  );
 
   let runtime: ServerResponse | undefined;
   let runtimePing: NodeJS.Timeout | undefined;
-  const pending = new Map<string, PendingCapture>();
+  const pendingCaptures = new Map<string, PendingRequest>();
+  const pendingPerformance = new Map<string, PendingRequest>();
 
-  const failPending = (message: string, status = 503): void => {
+  const failPendingMap = (
+    pending: Map<string, PendingRequest>,
+    message: string,
+    status = 503,
+  ): void => {
     for (const [requestId, item] of pending) {
       clearTimeout(item.timeout);
       if (!item.response.headersSent) {
@@ -58,12 +71,17 @@ export async function startSceneCheckLiveServer(
     pending.clear();
   };
 
+  const failAllPending = (message: string, status = 503): void => {
+    failPendingMap(pendingCaptures, message, status);
+    failPendingMap(pendingPerformance, message, status);
+  };
+
   const detachRuntime = (response?: ServerResponse): void => {
     if (response && runtime !== response) return;
     if (runtimePing) clearInterval(runtimePing);
     runtimePing = undefined;
     runtime = undefined;
-    failPending("SceneCheck live runtime disconnected.");
+    failAllPending("SceneCheck live runtime disconnected.");
   };
 
   const server = createServer(async (request, response) => {
@@ -74,7 +92,8 @@ export async function startSceneCheckLiveServer(
         sendJson(response, 200, {
           protocol: LIVE_PROTOCOL_VERSION,
           runtimeConnected: runtime !== undefined,
-          pendingCaptures: pending.size,
+          pendingCaptures: pendingCaptures.size,
+          pendingPerformance: pendingPerformance.size,
         });
         return;
       }
@@ -108,7 +127,11 @@ export async function startSceneCheckLiveServer(
         return;
       }
 
-      if (request.method === "OPTIONS" && url.pathname === "/runtime/respond") {
+      if (
+        request.method === "OPTIONS" &&
+        (url.pathname === "/runtime/respond" ||
+          url.pathname === "/runtime/performance-respond")
+      ) {
         const origin = validateRuntimeOrigin(request, allowedOrigins);
         if (!origin) {
           response.writeHead(403).end();
@@ -134,13 +157,13 @@ export async function startSceneCheckLiveServer(
         const payload = parseLiveCaptureResponse(
           JSON.parse(await readBody(request, MAX_RUNTIME_RESPONSE_BYTES)),
         );
-        const item = pending.get(payload.requestId);
+        const item = pendingCaptures.get(payload.requestId);
         if (!item) {
           sendJson(response, 404, { error: "SceneCheck live capture request is no longer pending." });
           return;
         }
 
-        pending.delete(payload.requestId);
+        pendingCaptures.delete(payload.requestId);
         clearTimeout(item.timeout);
         if (payload.ok) sendJson(item.response, 200, payload.scene);
         else sendJson(item.response, 502, { error: payload.error });
@@ -148,18 +171,39 @@ export async function startSceneCheckLiveServer(
         return;
       }
 
-      if (request.method === "POST" && url.pathname === "/capture") {
-        // Browser-originated callers are intentionally rejected. Agent CLI requests have no Origin.
-        if (request.headers.origin !== undefined) {
-          sendJson(response, 403, { error: "Browser-originated capture requests are not allowed." });
+      if (
+        request.method === "POST" &&
+        url.pathname === "/runtime/performance-respond"
+      ) {
+        const origin = validateRuntimeOrigin(request, allowedOrigins);
+        if (!origin) {
+          sendJson(response, 403, { error: "SceneCheck live runtime origin is not allowed." });
           return;
         }
-        if (!runtime || runtime.destroyed) {
-          sendJson(response, 503, { error: "No SceneCheck browser runtime is connected." });
+        applyRuntimeCors(response, origin);
+        const payload = parseLivePerformanceResponse(
+          JSON.parse(await readBody(request, MAX_RUNTIME_RESPONSE_BYTES)),
+        );
+        const item = pendingPerformance.get(payload.requestId);
+        if (!item) {
+          sendJson(response, 404, {
+            error: "SceneCheck live performance request is no longer pending.",
+          });
           return;
         }
 
-        const raw = await readBody(request, MAX_CAPTURE_REQUEST_BYTES);
+        pendingPerformance.delete(payload.requestId);
+        clearTimeout(item.timeout);
+        if (payload.ok) sendJson(item.response, 200, payload.performance);
+        else sendJson(item.response, 502, { error: payload.error });
+        sendJson(response, 202, { accepted: true });
+        return;
+      }
+
+      if (request.method === "POST" && url.pathname === "/capture") {
+        if (!validateAgentRequest(request, response, runtime)) return;
+
+        const raw = await readBody(request, MAX_AGENT_REQUEST_BYTES);
         const captureOptions = parseLiveCaptureOptions(raw.trim() ? JSON.parse(raw) : {});
         const requestId = randomUUID();
         const captureRequest: LiveCaptureRequest = {
@@ -169,15 +213,48 @@ export async function startSceneCheckLiveServer(
           options: captureOptions,
         };
 
-        const timeout = setTimeout(() => {
-          const item = pending.get(requestId);
-          if (!item) return;
-          pending.delete(requestId);
-          sendJson(item.response, 504, { error: "SceneCheck live capture timed out." });
-        }, captureTimeoutMs);
-        timeout.unref?.();
-        pending.set(requestId, { response, timeout });
-        runtime.write(`event: capture\ndata: ${JSON.stringify(captureRequest)}\n\n`);
+        pendingCaptures.set(
+          requestId,
+          makePendingRequest(
+            pendingCaptures,
+            requestId,
+            response,
+            captureTimeoutMs,
+            "SceneCheck live capture timed out.",
+          ),
+        );
+        runtime!.write(`event: capture\ndata: ${JSON.stringify(captureRequest)}\n\n`);
+        return;
+      }
+
+      if (request.method === "POST" && url.pathname === "/performance") {
+        if (!validateAgentRequest(request, response, runtime)) return;
+
+        const raw = await readBody(request, MAX_AGENT_REQUEST_BYTES);
+        const performanceOptions = parseLivePerformanceOptions(
+          raw.trim() ? JSON.parse(raw) : {},
+        );
+        const requestId = randomUUID();
+        const performanceRequest: LivePerformanceRequest = {
+          protocol: LIVE_PROTOCOL_VERSION,
+          requestId,
+          type: "performance",
+          options: performanceOptions,
+        };
+
+        pendingPerformance.set(
+          requestId,
+          makePendingRequest(
+            pendingPerformance,
+            requestId,
+            response,
+            performanceTimeoutMs,
+            "SceneCheck live performance sampling timed out.",
+          ),
+        );
+        runtime!.write(
+          `event: performance\ndata: ${JSON.stringify(performanceRequest)}\n\n`,
+        );
         return;
       }
 
@@ -215,12 +292,46 @@ export async function startSceneCheckLiveServer(
       runtimePing = undefined;
       if (runtime) runtime.end();
       runtime = undefined;
-      failPending("SceneCheck live server stopped.", 503);
+      failAllPending("SceneCheck live server stopped.", 503);
       await new Promise<void>((resolve, reject) => {
         server.close((error) => (error ? reject(error) : resolve()));
       });
     },
   };
+}
+
+function validateAgentRequest(
+  request: IncomingMessage,
+  response: ServerResponse,
+  runtime: ServerResponse | undefined,
+): boolean {
+  // Browser-originated callers are intentionally rejected. Agent CLI requests have no Origin.
+  if (request.headers.origin !== undefined) {
+    sendJson(response, 403, { error: "Browser-originated live requests are not allowed." });
+    return false;
+  }
+  if (!runtime || runtime.destroyed) {
+    sendJson(response, 503, { error: "No SceneCheck browser runtime is connected." });
+    return false;
+  }
+  return true;
+}
+
+function makePendingRequest(
+  pending: Map<string, PendingRequest>,
+  requestId: string,
+  response: ServerResponse,
+  timeoutMs: number,
+  timeoutMessage: string,
+): PendingRequest {
+  const timeout = setTimeout(() => {
+    const item = pending.get(requestId);
+    if (!item) return;
+    pending.delete(requestId);
+    sendJson(item.response, 504, { error: timeoutMessage });
+  }, timeoutMs);
+  timeout.unref?.();
+  return { response, timeout };
 }
 
 function validateRuntimeOrigin(
@@ -277,7 +388,7 @@ function normalizePort(value: number): number {
 
 function normalizeTimeout(value: number): number {
   if (!Number.isFinite(value) || value <= 0) {
-    throw new Error(`SceneCheck live capture timeout must be positive. Received: ${value}`);
+    throw new Error(`SceneCheck live timeout must be positive. Received: ${value}`);
   }
   return value;
 }

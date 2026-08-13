@@ -1,6 +1,9 @@
 import {
   DEFAULT_LIVE_URL,
+  parseRuntimePerformanceSnapshot,
   type LiveCaptureOptions,
+  type LivePerformanceOptions,
+  type RuntimePerformanceSnapshot,
   type SceneIR,
 } from "@scenecheck/core";
 
@@ -8,6 +11,7 @@ export interface LiveServerStatus {
   protocol: number;
   runtimeConnected: boolean;
   pendingCaptures: number;
+  pendingPerformance: number;
 }
 
 export async function getLiveStatus(
@@ -21,7 +25,8 @@ export async function getLiveStatus(
   if (
     typeof body.protocol !== "number" ||
     typeof body.runtimeConnected !== "boolean" ||
-    typeof body.pendingCaptures !== "number"
+    typeof body.pendingCaptures !== "number" ||
+    (body.pendingPerformance !== undefined && typeof body.pendingPerformance !== "number")
   ) {
     throw new Error("SceneCheck live status response is invalid.");
   }
@@ -29,6 +34,7 @@ export async function getLiveStatus(
     protocol: body.protocol,
     runtimeConnected: body.runtimeConnected,
     pendingCaptures: body.pendingCaptures,
+    pendingPerformance: body.pendingPerformance ?? 0,
   };
 }
 
@@ -48,6 +54,21 @@ export async function captureLiveScene(
     throw new Error("SceneCheck live capture returned invalid Scene IR.");
   }
   return body as unknown as SceneIR;
+}
+
+export async function sampleLivePerformance(
+  url = DEFAULT_LIVE_URL,
+  options: LivePerformanceOptions,
+): Promise<RuntimePerformanceSnapshot> {
+  const baseUrl = normalizeBaseUrl(url);
+  const response = await fetch(`${baseUrl}/performance`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(options),
+  });
+  const body = await readJsonResponse(response);
+  if (!response.ok) throw new Error(errorMessage(body, response.status));
+  return parseRuntimePerformanceSnapshot(body);
 }
 
 export function normalizeLiveUrl(value: string): string {
