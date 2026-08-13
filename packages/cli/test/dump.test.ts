@@ -111,3 +111,45 @@ test("query refuses an unfiltered full-scene response", async () => {
     },
   );
 });
+
+test("built CLI measures semantic anchor-to-socket distance without bounds", async () => {
+  const { stdout } = await execFileAsync(process.execPath, [
+    cli,
+    "measure",
+    "distance",
+    fixture,
+    "--from",
+    "socket:Root#origin",
+    "--to",
+    "anchor:box#edge",
+  ]);
+  const result = JSON.parse(stdout) as {
+    kind: string;
+    distance: number;
+    delta: number[];
+  };
+
+  assert.equal(result.kind, "distance");
+  assert.equal(result.distance, 4);
+  assert.deepEqual(result.delta, [4, 0, 0]);
+});
+
+test("built CLI measures semantic angular difference", async () => {
+  const { stdout } = await execFileAsync(process.execPath, [
+    cli,
+    "measure",
+    "angle",
+    fixture,
+    "--from",
+    "socket:Root#origin",
+    "--to",
+    "anchor:box#edge",
+  ]);
+  const result = JSON.parse(stdout) as {
+    kind: string;
+    degrees: number;
+  };
+
+  assert.equal(result.kind, "angle");
+  assert.ok(Math.abs(result.degrees - 90) < 1e-10);
+});
