@@ -1,6 +1,24 @@
 {
   "name": "@scenecheck/vite",
   "version": "0.1.0",
+  "description": "Vite plugin for SceneCheck that instruments scene provider source locations for the DevTools inspector.",
+  "license": "MIT",
+  "author": "YCY",
+  "homepage": "https://github.com/ycy-0510/scenecheck#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ycy-0510/scenecheck.git",
+    "directory": "packages/vite"
+  },
+  "bugs": {
+    "url": "https://github.com/ycy-0510/scenecheck/issues"
+  },
+  "keywords": [
+    "vite-plugin",
+    "three.js",
+    "3d",
+    "scenecheck"
+  ],
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

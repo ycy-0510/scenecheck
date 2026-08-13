@@ -1,6 +1,25 @@
 {
   "name": "@scenecheck/devtools",
   "version": "0.1.0",
+  "description": "Embedded browser DevTools inspector panel for SceneCheck — annotations, colliders, and live performance overlays.",
+  "license": "MIT",
+  "author": "YCY",
+  "homepage": "https://github.com/ycy-0510/scenecheck#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ycy-0510/scenecheck.git",
+    "directory": "packages/devtools"
+  },
+  "bugs": {
+    "url": "https://github.com/ycy-0510/scenecheck/issues"
+  },
+  "keywords": [
+    "three.js",
+    "devtools",
+    "debugging",
+    "3d",
+    "scenecheck"
+  ],
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

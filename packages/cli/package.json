@@ -1,6 +1,25 @@
 {
   "name": "@scenecheck/cli",
   "version": "0.1.0",
+  "description": "SceneCheck CLI — dump, query, measure, and validate 3D scenes from the command line and CI.",
+  "license": "MIT",
+  "author": "YCY",
+  "homepage": "https://github.com/ycy-0510/scenecheck#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ycy-0510/scenecheck.git",
+    "directory": "packages/cli"
+  },
+  "bugs": {
+    "url": "https://github.com/ycy-0510/scenecheck/issues"
+  },
+  "keywords": [
+    "cli",
+    "3d",
+    "testing",
+    "three.js",
+    "scenecheck"
+  ],
   "type": "module",
   "engines": {
     "node": ">=22.18"

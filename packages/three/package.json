@@ -1,6 +1,25 @@
 {
   "name": "@scenecheck/three",
   "version": "0.1.0",
+  "description": "Three.js adapter for SceneCheck — Scene IR capture, semantics, colliders, and annotations.",
+  "license": "MIT",
+  "author": "YCY",
+  "homepage": "https://github.com/ycy-0510/scenecheck#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ycy-0510/scenecheck.git",
+    "directory": "packages/three"
+  },
+  "bugs": {
+    "url": "https://github.com/ycy-0510/scenecheck/issues"
+  },
+  "keywords": [
+    "three.js",
+    "threejs",
+    "3d",
+    "scene-graph",
+    "scenecheck"
+  ],
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
