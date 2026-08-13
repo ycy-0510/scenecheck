@@ -11,6 +11,11 @@ const cli = fileURLToPath(new URL("../dist/cli.js", import.meta.url));
 
 const identityRotation = [0, 0, 0, 1];
 const identityScale = [1, 1, 1];
+const identityTransform = {
+  position: [0, 0, 0],
+  rotation: identityRotation,
+  scale: identityScale,
+};
 const scene = {
   version: 1,
   roots: ["a", "b"],
@@ -22,6 +27,11 @@ const scene = {
       localTransform: { position: [0, 0, 0], rotation: identityRotation, scale: identityScale },
       worldTransform: { position: [0, 0, 0], rotation: identityRotation, scale: identityScale },
       bounds: { min: [-1, -1, -1], max: [1, 1, 1] },
+      semantics: {
+        colliders: [
+          { id: "shape", type: "box", size: [2, 2, 2], transform: identityTransform },
+        ],
+      },
     },
     b: {
       id: "b",
@@ -30,6 +40,11 @@ const scene = {
       localTransform: { position: [3, 4, 0], rotation: identityRotation, scale: identityScale },
       worldTransform: { position: [3, 4, 0], rotation: identityRotation, scale: identityScale },
       bounds: { min: [2, 3, -1], max: [4, 5, 1] },
+      semantics: {
+        colliders: [
+          { id: "shape", type: "sphere", radius: 1, transform: identityTransform },
+        ],
+      },
     },
   },
 };
@@ -82,6 +97,35 @@ test("live AABB measurement requests bounds only when required", async () => {
     assert.deepEqual(result.axisGap, [1, 2, 0]);
     assert.deepEqual(captureBodies, [
       { includeInvisible: true, includeBounds: true },
+    ]);
+  } finally {
+    await server.close();
+  }
+});
+
+test("live registered collider relation skips bounds and uses Scene IR semantics", async () => {
+  const captureBodies: unknown[] = [];
+  const server = await startCaptureServer(captureBodies);
+  try {
+    const { stdout, stderr } = await execFileAsync(process.execPath, [
+      cli,
+      "live",
+      "measure",
+      "collider",
+      "--from",
+      "collider:a#shape",
+      "--to",
+      "collider:b#shape",
+      "--url",
+      server.url,
+    ]);
+    const result = JSON.parse(stdout);
+    assert.equal(stderr, "");
+    assert.equal(result.status, "exact");
+    assert.equal(result.pair, "sphere-box");
+    assert.equal(result.intersects, false);
+    assert.deepEqual(captureBodies, [
+      { includeInvisible: true, includeBounds: false },
     ]);
   } finally {
     await server.close();

@@ -2,11 +2,12 @@ import {
   measureAabbRelation,
   measureAabbSize,
   measureAngle,
+  measureColliderRelation,
   measureDistance,
 } from "@scenecheck/core";
 import { loadSceneIRFromProvider } from "./dump.js";
 
-type MeasureOperation = "distance" | "angle" | "aabb" | "bounds";
+type MeasureOperation = "distance" | "angle" | "aabb" | "bounds" | "collider";
 
 interface MeasureCliOptions {
   operation: MeasureOperation;
@@ -33,6 +34,8 @@ export async function runMeasureCommand(commandArgs: readonly string[]): Promise
     result = measureAngle(scene, options.from!, options.to!);
   } else if (options.operation === "aabb") {
     result = measureAabbRelation(scene, options.from!, options.to!);
+  } else if (options.operation === "collider") {
+    result = measureColliderRelation(scene, options.from!, options.to!);
   } else {
     result = measureAabbSize(scene, options.node!);
   }
@@ -46,9 +49,12 @@ function parseMeasureArgs(commandArgs: readonly string[]): MeasureCliOptions {
     operation !== "distance" &&
     operation !== "angle" &&
     operation !== "aabb" &&
-    operation !== "bounds"
+    operation !== "bounds" &&
+    operation !== "collider"
   ) {
-    throw new Error("measure requires an operation: distance, angle, aabb, or bounds.");
+    throw new Error(
+      "measure requires an operation: distance, angle, aabb, bounds, or collider.",
+    );
   }
 
   let provider: string | undefined;
@@ -97,7 +103,12 @@ function parseMeasureArgs(commandArgs: readonly string[]): MeasureCliOptions {
   }
 
   if (!from || !to) {
-    const kind = operation === "aabb" ? "node IDs" : "references";
+    const kind =
+      operation === "aabb"
+        ? "node IDs"
+        : operation === "collider"
+          ? "collider references"
+          : "references";
     throw new Error(`measure ${operation} requires both --from and --to ${kind}.`);
   }
 

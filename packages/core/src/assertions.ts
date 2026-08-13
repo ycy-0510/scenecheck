@@ -1,4 +1,5 @@
 import { measureAabbRelation } from "./aabb.js";
+import { measureColliderRelation } from "./collider-relations.js";
 import { measureAngle, measureDistance } from "./measure.js";
 import type { SceneIR } from "./index.js";
 
@@ -45,18 +46,29 @@ export interface AabbIntersectionAssertion {
   strict?: boolean;
 }
 
+export interface ColliderIntersectionAssertion {
+  id: string;
+  type: "collider-intersection";
+  a: string;
+  b: string;
+  expected: boolean;
+  /** When true, boundary-only contact is not considered an intersection. */
+  strict?: boolean;
+}
+
 export type SceneAssertion =
   | DistanceAssertion
   | AngleAssertion
   | AabbClearanceAssertion
-  | AabbIntersectionAssertion;
+  | AabbIntersectionAssertion
+  | ColliderIntersectionAssertion;
 
 export interface AssertionResult {
   id: string;
   type: SceneAssertion["type"];
   pass: boolean;
-  actual: number | boolean;
-  unit: "m" | "deg" | "boolean";
+  actual: number | boolean | "unsupported";
+  unit: "m" | "deg" | "boolean" | "status";
   expected: string;
   from: string;
   to: string;
@@ -153,6 +165,44 @@ export function evaluateAssertion(
     };
   }
 
+  if (assertion.type === "collider-intersection") {
+    const measurement = measureColliderRelation(scene, assertion.a, assertion.b);
+    const relation = assertion.strict
+      ? "strict collider overlap"
+      : "closed collider intersection";
+    const expected = `${relation} must be ${assertion.expected}`;
+
+    if (measurement.status === "unsupported") {
+      return {
+        id: assertion.id,
+        type: assertion.type,
+        pass: false,
+        actual: "unsupported",
+        unit: "status",
+        expected,
+        from: assertion.a,
+        to: assertion.b,
+        message: `${assertion.id}: ${relation} is unsupported; fails ${expected}; ${measurement.reason}`,
+      };
+    }
+
+    const actual = assertion.strict
+      ? measurement.strictlyOverlaps
+      : measurement.intersects;
+    const pass = actual === assertion.expected;
+    return {
+      id: assertion.id,
+      type: assertion.type,
+      pass,
+      actual,
+      unit: "boolean",
+      expected,
+      from: assertion.a,
+      to: assertion.b,
+      message: `${assertion.id}: ${relation} is ${actual}; ${pass ? "passes" : "fails"} expected ${assertion.expected}`,
+    };
+  }
+
   const measurement = measureAabbRelation(scene, assertion.a, assertion.b);
   const actual = assertion.strict ? measurement.strictlyOverlaps : measurement.intersects;
   const relation = assertion.strict ? "strict AABB overlap" : "closed AABB intersection";
@@ -190,17 +240,34 @@ function validateAssertionDefinition(assertion: SceneAssertion): void {
     return;
   }
   if (assertion.type === "aabb-intersection") {
-    if (!assertion.a.trim() || !assertion.b.trim()) {
-      throw new Error(`Assertion "${assertion.id}" requires non-empty a/b node IDs.`);
-    }
-    if (typeof assertion.expected !== "boolean") {
-      throw new Error(`AABB intersection assertion "${assertion.id}" expected must be boolean.`);
+    validateBooleanRelationAssertion(assertion, "AABB intersection", "node IDs");
+    return;
+  }
+  if (assertion.type === "collider-intersection") {
+    validateBooleanRelationAssertion(assertion, "Collider intersection", "collider references");
+    if (!assertion.a.startsWith("collider:") || !assertion.b.startsWith("collider:")) {
+      throw new Error(
+        `Collider intersection assertion "${assertion.id}" a/b must use collider:<node-id>#<collider-id> references.`,
+      );
     }
     return;
   }
 
   const neverAssertion: never = assertion;
   throw new Error(`Unsupported SceneCheck assertion type: ${String(neverAssertion)}`);
+}
+
+function validateBooleanRelationAssertion(
+  assertion: { id: string; a: string; b: string; expected: boolean },
+  label: string,
+  referenceKind: string,
+): void {
+  if (!assertion.a.trim() || !assertion.b.trim()) {
+    throw new Error(`Assertion "${assertion.id}" requires non-empty a/b ${referenceKind}.`);
+  }
+  if (typeof assertion.expected !== "boolean") {
+    throw new Error(`${label} assertion "${assertion.id}" expected must be boolean.`);
+  }
 }
 
 function requireFromTo(assertion: { id: string; from: string; to: string }): void {
