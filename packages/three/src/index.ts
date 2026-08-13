@@ -1,12 +1,35 @@
-import type {
-  Bounds,
-  Mat4,
-  SceneIR,
-  SceneNode,
-  Transform,
+import {
+  validateAnnotations,
+  type Bounds,
+  type Mat4,
+  type SceneIR,
+  type SceneNode,
+  type Transform,
 } from "@scenecheck/core";
 import { Box3, Matrix4, Quaternion, Vector3 } from "three";
 import type { BufferGeometry, Object3D } from "three";
+import { readThreeSceneAnnotations } from "./annotations.js";
+import { readThreeSceneCheckMetadata } from "./semantics.js";
+
+export {
+  readThreeSceneAnnotations,
+  setThreeSceneAnnotations,
+} from "./annotations.js";
+export {
+  isThreeSceneCheckInternal,
+  markThreeSceneCheckInternal,
+} from "./internal.js";
+export {
+  describeThreeObject,
+  readThreeSceneCheckMetadata,
+} from "./semantics.js";
+export type {
+  StoredThreeSceneCheckMetadata,
+  ThreeAnchorInput,
+  ThreeSceneCheckDescriptor,
+  ThreeSemanticTransformInput,
+  ThreeSocketInput,
+} from "./semantics.js";
 
 export type ThreeIdStrategy = "path" | "uuid";
 
@@ -58,12 +81,15 @@ export function fromThreeScene(
   const parentVisible = ancestorsAreVisible(root.parent);
 
   const rootId = visit(root, undefined, makePathSegment(root, 0, [root]), parentVisible);
-
-  return {
+  const annotations = readThreeSceneAnnotations(root);
+  const scene: SceneIR = {
     version: 1,
     roots: rootId ? [rootId] : [],
     nodes,
+    ...(annotations?.length ? { annotations } : {}),
   };
+  validateAnnotations(scene);
+  return scene;
 
   function visit(
     object: Object3D,
@@ -71,16 +97,21 @@ export function fromThreeScene(
     path: string,
     ancestorsVisible: boolean,
   ): string | undefined {
+    if (object.userData.scenecheckInternal === true) {
+      return undefined;
+    }
+
     const effectiveVisible = ancestorsVisible && object.visible;
     if (!config.includeInvisible && !effectiveVisible) {
       return undefined;
     }
 
     const context: ThreeIdContext = { path, parentId };
-    const id = resolveObjectId(object, context, config);
+    const sceneCheckMetadata = readThreeSceneCheckMetadata(object);
+    const id = resolveObjectId(object, context, config, sceneCheckMetadata?.id);
     if (usedIds.has(id)) {
       throw new Error(
-        `SceneCheck produced duplicate object id "${id}". Set a unique userData.scenecheckId or provide getId().`,
+        `SceneCheck produced duplicate object id "${id}". Use describeThreeObject() with a unique id, set a unique userData.scenecheckId, or provide getId().`,
       );
     }
     usedIds.add(id);
@@ -119,6 +150,7 @@ export function fromThreeScene(
       children: childIds,
       localTransform: matrixToTransform(object.matrix),
       worldTransform: matrixToTransform(object.matrixWorld),
+      ...(sceneCheckMetadata?.source ? { source: sceneCheckMetadata.source } : {}),
       ...(subtreeBounds ? { bounds: boxToBounds(subtreeBounds) } : {}),
       metadata: {
         "three.uuid": object.uuid,
@@ -127,6 +159,9 @@ export function fromThreeScene(
         "three.renderOrder": object.renderOrder,
         "three.layersMask": object.layers.mask,
       },
+      ...(sceneCheckMetadata?.semantics
+        ? { semantics: sceneCheckMetadata.semantics }
+        : {}),
     };
 
     nodes[id] = node;
@@ -138,13 +173,16 @@ function resolveObjectId(
   object: Object3D,
   context: ThreeIdContext,
   options: ThreeSceneAdapterOptions & typeof DEFAULT_OPTIONS,
+  descriptorId?: string,
 ): string {
   const resolved = options.getId?.(object, context);
   if (resolved?.trim()) return resolved.trim();
 
-  const semanticId = (object.userData as Record<string, unknown>).scenecheckId;
-  if (typeof semanticId === "string" && semanticId.trim()) {
-    return semanticId.trim();
+  if (descriptorId) return descriptorId;
+
+  const legacySemanticId = (object.userData as Record<string, unknown>).scenecheckId;
+  if (typeof legacySemanticId === "string" && legacySemanticId.trim()) {
+    return legacySemanticId.trim();
   }
 
   return options.idStrategy === "uuid" ? object.uuid : context.path;

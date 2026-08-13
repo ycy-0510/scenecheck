@@ -1,0 +1,22 @@
+{
+  "format": "scenecheck.annotations",
+  "version": 1,
+  "annotations": [
+    {
+      "id": "target",
+      "type": "point",
+      "attachedTo": "tunnel",
+      "localTransform": {
+        "position": [2, 0, 0],
+        "rotation": [0, 0, 0, 1],
+        "scale": [1, 1, 1]
+      },
+      "worldTransform": {
+        "position": [999, 999, 999],
+        "rotation": [0, 0, 0, 1],
+        "scale": [1, 1, 1]
+      },
+      "label": "Persisted target"
+    }
+  ]
+}

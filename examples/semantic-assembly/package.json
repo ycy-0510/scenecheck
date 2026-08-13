@@ -1,0 +1,14 @@
+{
+  "name": "scenecheck-example-semantic-assembly",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "dump": "node ../../packages/cli/dist/cli.js dump scenecheck.scene.ts --pretty",
+    "solve": "node ../../packages/cli/dist/cli.js solve attachment scenecheck.scene.ts --module emergency-exit-template --anchor mount --target tunnel-01 --socket emergency-right --pretty",
+    "validate": "node ../../packages/cli/dist/cli.js validate --config scenecheck.config.ts"
+  },
+  "dependencies": {
+    "@scenecheck/three": "workspace:*",
+    "three": "^0.185.1"
+  }
+}
